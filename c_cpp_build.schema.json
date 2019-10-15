@@ -1,0 +1,142 @@
+{
+	"title": "Build File Schema",
+	"description": "VS Code C/C++ Build File Schema",
+	"type": "object",
+	"properties": {
+		"version": {
+			"type": "integer",
+			"description": "file schema version",
+			"multipleOf": 1,
+			"minimum": 1,
+			"maximum": 1,
+			"default": 1
+		},
+		"configurations": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"properties": {
+					"name": {
+						"type": "string",
+						"description": "configuration name",
+						"minLength": 1,
+						"examples": [
+							"GCC Build"
+						]
+					},
+					"problemMatchers": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						},
+						"minItems": 1,
+						"examples": [
+							"$gcc"
+						]
+					},
+					"buildTypes": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"name": {
+									"type": "string",
+									"description": "build type name, e.g. DEBUG or RELEASE",
+									"minLength": 1,
+									"examples": [
+										"DEBUG", "RELEASE"
+									]
+								},
+								"params": {
+									"type": "object",
+									"description": "name/value pairs",
+									"minProperties": 1,
+									"additionalProperties": {
+										"type": "string"
+									},
+									"examples": [
+										"\"buildTypeParams\": \"-O0 -g\"",
+										"\"buildTypeParams\": \"-Os -g1\""
+									]
+								}
+							},
+							"required": [
+								"name"
+							],
+							"additionalProperties": false
+						}
+					},
+					"buildSteps": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"name": {
+									"type": "string",
+									"description": "build step name",
+									"minLength": 1,
+									"examples": [
+										"C Compile"
+									]
+								},
+								"filePattern": {
+									"type": "string",
+									"description": "glob file pattern - command will be called for every file",
+									"minLength": 1,
+									"pattern": ".",
+									"examples": [
+										"**/*.c"
+									]
+								},
+								"fileList": {
+									"type": "string",
+									"description": "glob file pattern - command will be called once",
+									"minLength": 1,
+									"pattern": ".",
+									"examples": [
+										"**/*.c"
+									]
+								},
+								"outputDirectory": {
+									"type": "string",
+									"description": "output directory template",
+									"minLength": 1,
+									"pattern": ".",
+									"examples": [
+										"build/${fileDirectory}"
+									]
+								},
+								"command": {
+									"type": "string",
+									"description": "output directory template",
+									"minLength": 1,
+									"pattern": ".",
+									"examples": [
+										"[${env:ArmToolchainPath}/bin/arm-none-eabi-gcc] -c ${buildTypeParams} (-I[*{includePath}]) (-D*{defines}) (-include [*{forcedInclude}]) [${filePath}] -o [${outputDirectory}/${fileName}.o]"
+									]
+								}
+							},
+							"required": [
+								"name",
+								"command"
+							],
+							"additionalProperties": false
+						},
+						"minItems": 1
+					}
+				},
+				"required": [
+					"name",
+					"buildSteps"
+				],
+				"additionalProperties": false
+			},
+			"minItems": 1
+		}
+	},
+	"required": [
+		"version",
+		"configurations"
+	],
+	"additionalProperties": false
+}

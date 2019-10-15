@@ -1,0 +1,24 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Launch Program",
+            "program": "${workspaceFolder}/src/cli.ts",
+            "preLaunchTask": "npm build",
+            "outFiles": [
+                "${workspaceFolder}/out/**/*.js"
+            ],
+            "args": [
+                //"GCC", "DEBUG", "-w", "H:/DISCO-F769NI_LCD_demo", "-b", "H:/cppbuild/c_cpp_build.json", "-p", "H:/cppbuild/c_cpp_properties.json"
+                //"GCC", "DEBUG", "-w", "H:/DISCO-F769NI_LCD_demo",  "-v", "buildTypeParams=-O0 -g"
+                //"GCC", "DEBUG", "-w", "H:/DISCO-F769NI_LCD_demo", "-b", "H:/cppbuild/c_cpp_build.json", "-p", "H:/cppbuild/c_cpp_properties.json"
+                "GCC", "debug", "-w", "H:\\SimpleVsCodeC++App"
+            ]
+        }
+    ]
+}

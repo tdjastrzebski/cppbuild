@@ -1,0 +1,67 @@
+{
+	"version": 1,
+	"configurations": [
+		{
+			"name": "GCC",
+			"problemMatchers": ["$gcc"],
+			"buildTypes": [
+				{
+					"name": "DEBUG",
+					"params": {
+						"buildTypeParams": "-O0 -g"
+					}
+				},
+				{
+					"name": "RELEASE",
+					"params": {
+						"buildTypeParams": "-Os -g1"
+					}
+				}
+			],
+			"buildSteps": [
+				{
+					"name": "C Compile",
+					"filePattern": "**/*.c",
+					"outputDirectory": "new_build/${fileDirectory}",
+					"command": "[${env:ArmToolchainPath}/bin/arm-none-eabi-gcc] -std=gnu11 -c ${buildTypeParams} -Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -fmessage-length=0 -fno-exceptions -ffunction-sections -fdata-sections -funsigned-char -MMD -fno-delete-null-pointer-checks -fomit-frame-pointer -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=softfp (-I[$${includePath}]) (-D$${defines}) (-include [$${forcedInclude}]) [${filePath}] -o [${outputDirectory}/${fileName}.o]"
+				},
+				{
+					"name": "C++ Compile",
+					"filePattern": "**/*.cpp",
+					"outputDirectory": "new_build/${fileDirectory}",
+					"command": "[${env:ArmToolchainPath}/bin/arm-none-eabi-g++] -std=gnu++17 -c ${buildTypeParams} -fno-rtti -Wvla -Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -fmessage-length=0 -fno-exceptions -ffunction-sections -fdata-sections -funsigned-char -MMD -fno-delete-null-pointer-checks -fomit-frame-pointer -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=softfp (-I[$${includePath}]) (-D$${defines}) (-include [$${forcedInclude}]) [${filePath}] -o [${outputDirectory}/${fileName}.o]"
+				},
+				{
+					"name": "Build link script",
+					"outputDirectory": "new_build",
+					"command": "[${env:ArmToolchainPath}/bin/arm-none-eabi-cpp] -E -P -Wl,--gc-sections -Wl,--wrap,main -Wl,--wrap,_malloc_r -Wl,--wrap,_free_r -Wl,--wrap,_realloc_r -Wl,--wrap,_memalign_r -Wl,--wrap,_calloc_r -Wl,--wrap,exit -Wl,--wrap,atexit -Wl,-n -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=softfp -DMBED_ROM_START=0x8000000 -DMBED_ROM_SIZE=0x200000 -DMBED_ROM1_START=0x200000 -DMBED_ROM1_SIZE=0x200000 -DMBED_RAM_START=0x20020000 -DMBED_RAM_SIZE=0x60000 -DMBED_RAM1_START=0x20000000 -DMBED_RAM1_SIZE=0x20000 -DMBED_BOOT_STACK_SIZE=4096 [mbed/TARGET_DISCO_F769NI/TOOLCHAIN_GCC_ARM/STM32F769xI.ld] -o [${outputDirectory}/${workspaceRootFolderName}.link_script.ld]"
+				},
+				{
+					"name": "Build object list 1",
+					"outputDirectory": "new_build",
+					"command": "find [${outputDirectory}] -type f -name '*.o' > [${outputDirectory}/object_list.txt]"
+				},
+				{
+					"name": "Build object list 2",
+					"outputDirectory": "new_build",
+					"command": "find mbed -type f -name '*.o' >> [${outputDirectory}/object_list.txt]"
+				},
+				{
+					"name": "Link to elf",
+					"outputDirectory": "new_build",
+					"command": "[${env:ArmToolchainPath}/bin/arm-none-eabi-gcc] -Wl,--gc-sections -Wl,--wrap,main -Wl,--wrap,_malloc_r -Wl,--wrap,_free_r -Wl,--wrap,_realloc_r -Wl,--wrap,_memalign_r -Wl,--wrap,_calloc_r -Wl,--wrap,exit -Wl,--wrap,atexit -Wl,-n -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=softfp -DMBED_ROM_START=0x8000000 -DMBED_ROM_SIZE=0x200000 -DMBED_ROM1_START=0x200000 -DMBED_ROM1_SIZE=0x200000 -DMBED_RAM_START=0x20020000 -DMBED_RAM_SIZE=0x60000 -DMBED_RAM1_START=0x20000000 -DMBED_RAM1_SIZE=0x20000 -DMBED_BOOT_STACK_SIZE=4096 -T [${outputDirectory}/${workspaceRootFolderName}.link_script.ld] -L[mbed/TARGET_DISCO_F769NI/TOOLCHAIN_GCC_ARM] -o [${outputDirectory}/${workspaceRootFolderName}.elf] @[${outputDirectory}/object_list.txt] -lmbed -Wl,--start-group -lstdc++ -lsupc++ -lm -lc -lgcc -lnosys -lmbed -Wl,--end-group"
+				},
+				{
+					"name": "elf -> bin",
+					"outputDirectory": "new_build",
+					"command": "[${env:ArmToolchainPath}/bin/arm-none-eabi-objcopy] -O binary [${outputDirectory}/${workspaceRootFolderName}.elf] [${outputDirectory}/${workspaceRootFolderName}.bin]"
+				},
+				{
+					"name": "elf -> hex",
+					"outputDirectory": "new_build",
+					"command": "[${env:ArmToolchainPath}/bin/arm-none-eabi-objcopy] -O ihex [${outputDirectory}/${workspaceRootFolderName}.elf] [${outputDirectory}/${workspaceRootFolderName}.hex]"
+				}
+			]
+		}
+	]
+}

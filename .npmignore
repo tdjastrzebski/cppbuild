@@ -1,0 +1,7 @@
+/src
+/tests
+*.js.map
+*.json
+*.txt
+!c_cpp_build.schema.json
+!c_cpp_properties.schema.json

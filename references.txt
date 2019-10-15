@@ -1,0 +1,67 @@
+GCC compiler manual
+https://manned.org/arm-none-eabi-gcc/34fd6095
+
+GCC Linker manual
+https://ftp.gnu.org/old-gnu/Manuals/ld-2.9.1/html_node/ld_3.html
+
+Glob
+https://en.wikipedia.org/wiki/Glob_(programming)
+
+Introduction to NPM Scripts
+https://www.freecodecamp.org/news/introduction-to-npm-scripts-1dbb2ae01633/
+
+The package.json guide
+https://flaviocopes.com/package-json/
+
+Build An Interactive Command-Line Application with Node.js
+https://scotch.io/tutorials/build-an-interactive-command-line-application-with-nodejs
+https://github.com/tj/commander.js/
+
+Why npm Scripts?
+https://css-tricks.com/why-npm-scripts/
+
+Creating Node.js modules
+https://docs.npmjs.com/creating-node-js-modules
+https://blog.npmjs.org/post/118810260230/building-a-simple-command-line-tool-with-npm
+https://medium.com/the-andela-way/build-and-publish-your-first-npm-package-a4daf0e2431
+https://itnext.io/how-to-create-your-own-typescript-cli-with-node-js-1faf7095ef89
+https://skovy.dev/creating-a-cli-with-typescript/
+
+node shebang
+https://medium.com/rubber-ducking/creating-a-cli-with-typescript-1c5112ae101f
+
+Node.js — How to test your new NPM module without publishing it every 5 minutes
+https://medium.com/@the1mills/how-to-test-your-npm-module-without-publishing-it-every-5-minutes-1c4cb4b369be
+
+cppbuild GCC DEBUG -w H:/DISCO-F769NI_LCD_demo -b H:/cppbuild/c_cpp_build.json -c H:/cppbuild/c_cpp_properties.json -v "buildTypeParams=-Os -g2"
+
+npm publish --dry-run
+
+Understanding JSON Schema
+https://json-schema.org/understanding-json-schema/
+https://json-schema.org/understanding-json-schema/reference/regular_expressions.html
+https://www.jsonschemavalidator.net/
+https://jsonschema.net/
+
+https://esfx.js.org/#async
+https://github.com/esfx/esfx/
+https://github.com/epoberezkin/ajv
+
+RegEx
+https://regex101.com/
+https://regexr.com/
+
+http://www.ecma-international.org/ecma-262/10.0/index.html#sec-primary-expression-regular-expression-literals
+http://www.ecma-international.org/ecma-262/10.0/index.html#sec-regexp-regular-expression-objects
+https://2ality.com/2017/05/regexp-named-capture-groups.html
+
+https://github.com/tc39/proposal-regexp-named-groups
+https://2ality.com/2017/05/regexp-named-capture-groups.html
+
+
+command      = (text | single_param | sub_template)+
+sub_template = ( (text | single_param)* ([(text | single_param)* multi_param (text | single_param)*] | multi_param) (text | single_param)* )
+multi_param  = $${name}
+single_param = ${name}
+text = (~({ | } | ( | ) | [ | ]))+
+name = ([a..z] | [A..Z] | [0..9] | _ | - | . | :)+

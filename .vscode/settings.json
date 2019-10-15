@@ -1,0 +1,10 @@
+{
+    //"terminal.integrated.shell.windows": "C:\\WINDOWS\\system32\\cmd.exe"
+    //"terminal.integrated.shell.windows": "C:\\WINDOWS\\system32\\wsl.exe"
+    "terminal.integrated.shell.windows": "C:\\Program Files\\Git\\bin\\bash.exe",
+    "cSpell.words": [
+        "cppbuild",
+        "cpptools",
+        "mutex"
+    ]
+}
