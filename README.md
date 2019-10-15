@@ -58,7 +58,6 @@ Here is how it works:
 
 # Further improvements
 I am certain this tool could be further improved in many ways, including both functionality and code structure. This is the second TypeScript program I have ever written (the first one was "hello world" app).  
-One thing surely missing is json schema and file validation.  
 Probably it would be nice to be able to supply additional multi-valued variables and values - both from command line and build type.  
 It may be feasible to remove dependency on `c_cpp_properties.json` and **ms-vscode.cpptools** all together. This way this tool could be used for any build - not only C/C++.
 
