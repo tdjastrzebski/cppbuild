@@ -2,7 +2,7 @@
   "name": "cppbuild",
   "description": "VS Code C/C++ Build Tool",
   "author": "Tomasz Jastrzębski",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "license": "MIT",
   "keywords": [
     "vscode",
@@ -12,6 +12,9 @@
     "cpptools"
   ],
   "main": "out/main.js",
+  "bin": {
+    "cppbuild": "out/cli.js"
+  },
   "types": "out/main.d.ts",
   "engines": {
     "node": ">= 10.0.0",
