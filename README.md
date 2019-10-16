@@ -1,5 +1,5 @@
 # What is it?
-**cppbuild** is a simple command line tool made for building VS Code C/C++ projects based on popular [ms-vscode.cpptools](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools) settings and its own build steps.
+**cppbuild** is a simple command line multi-step build tool made for building VS Code C/C++ projects based on popular [ms-vscode.cpptools](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools) settings and its own build steps.
 
 # Why?
 While working on C/C++ for embedded devices in VS Code I wanted to simplify multi-step build process configuration and maintenance. Also, I wanted to eliminate setting duplication (include paths and defines) between `c_cpp_properties.json` and widely used MAKE/CMake files. Although these tools are industry standard, I am not a big fan of them. All that led me to the development of a completely new build tool.  
