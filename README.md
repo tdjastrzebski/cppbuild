@@ -31,9 +31,9 @@ Sample build type:
 ```
 Sample build step:
 ```
-"name": "C Compile",
+"name": "C++ Compile",
 "filePattern": "**/*.cpp",
-"outputDirectory": "build/${fileDirectory}",
+"outputDirectory": "build/${buildTypeName}/${fileDirectory}",
 "command": "g++ -c ${buildTypeParams} (-I[$${includePath}]) (-D$${defines}) (-include [$${forcedInclude}]) [${filePath}] -o [${outputDirectory}/${fileName}.o]"
 ```
 Here is how it works:

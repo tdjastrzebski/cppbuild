@@ -86,7 +86,7 @@ console.log('build type: ' + (_buildTypeName || 'none'));
 
 	const end = process.hrtime(start);
 	const timeElapsed = end[0] + end[1] / 1000000000;
-	console.log(`build steps completed in ${timeElapsed.toFixed(2)}s`);
+	console.log(`Build steps completed in ${timeElapsed.toFixed(2)}s`);
 })();
 
 function logBuildOutput(line: string) {

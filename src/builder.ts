@@ -10,6 +10,7 @@ import { BuildConfigurations, BuildConfiguration, BuildType } from "./interfaces
 import { globAsync, getJsonObject, ExecCmdResult, execCmd, addToDictionary } from "./utils";
 import { getCppConfigParams, validateJsonFile, createOutputDirectory, buildCommand } from "./processor";
 import { AsyncSemaphore } from "@esfx/async-semaphore";
+import { AsyncMutex } from "@esfx/async-mutex";
 import { hasMagic } from "glob";
 import * as path from 'path';
 import { deepClone } from "./vscode";
@@ -122,7 +123,7 @@ export class Builder {
 	}
 
 	// TODO: consider adding a flag to allow to continue on errors
-	async runBuildStep(workspaceRoot: string, commandTmpl: string, extraParams: IStringDictionary<string | string[]>, label: string, maxTaskCount: number, logOutput: (text: string) => void, logError: (text: string) => void, filePattern?: string, fileList?: string, outputDirectoryTmpl?: string) {
+	async runBuildStep(workspaceRoot: string, commandTmpl: string, extraParams: IStringDictionary<string | string[]>, stepName: string, maxTaskCount: number, logOutput: (text: string) => void, logError: (text: string) => void, filePattern?: string, fileList?: string, outputDirectoryTmpl?: string) {
 		if (filePattern) {
 			// run command for each file
 			const filePaths: string[] = await globAsync(filePattern, { cwd: workspaceRoot });
@@ -137,7 +138,7 @@ export class Builder {
 					if (false === await checkFileExists(path.join(workspaceRoot, filePath))) return;
 					const params = deepClone(extraParams);
 					// run for each file
-					const actionName: string = label + ': ' + filePath;
+					const actionName: string = stepName + ': ' + filePath;
 					const fileDirectory: string = path.dirname(filePath);
 					const extName: string = path.extname(filePath);
 					const fullFileName: string = path.basename(filePath);
@@ -193,7 +194,7 @@ export class Builder {
 			}
 
 			let command: string = buildCommand(commandTmpl, extraParams);
-			const result = await this.execCommand(command, workspaceRoot, label, logOutput, logError);
+			const result = await this.execCommand(command, workspaceRoot, stepName, logOutput, logError);
 			if (result && result.error) throw result.error;
 		}
 	}
@@ -233,30 +234,44 @@ export class Builder {
 		return expandedPaths;
 	}
 
+	_mutex: AsyncMutex = new AsyncMutex();
+
 	async execCommand(commandLine: string, rootPath: string, actionName: string, logOutput: (line: string) => void, logError: (line: string) => void): Promise<ExecCmdResult | undefined> {
 		let result: ExecCmdResult | undefined = undefined;
+		let output: string = actionName;
+		let error: string = '';
 
-		await execCmd(commandLine, { cwd: rootPath }).then(res => {
-			if (!this._aborting) logOutput(actionName);
-			result = res;
-		}).catch(e => {
-			if (!this._aborting) logError('action: ' + actionName);
-			if (!this._aborting) logError('command: ' + commandLine);
-
-			result = e as ExecCmdResult;
-
-			// if (result.error) {
-			// 	logError('error msg: ' + result.error.message);
-			// 	logError('error code: ' + result.error.code);
-			// } else {
-			// 	throw e; // unexpected exception
-			// }
-		}).finally(() => {
+		try {
+			result = await execCmd(commandLine, { cwd: rootPath });
+			
 			if (result) {
-				if (!this._aborting) logOutput(result.stdout);
-				if (!this._aborting) logError(result.stderr);
+				if (output && result.stdout) output += '\n';
+				output += result.stdout;
+				output = output.trimRight();
+				error += result.stderr;
+				error = error.trimRight();
 			}
-		});
+		} catch (e) {
+			error = 'Error while executing: ' + commandLine;
+			result = e as ExecCmdResult;
+			
+			if (result) {
+				if (output && result.stdout) output += '\n';
+				output += result.stdout;
+				output = output.trimRight();
+			}
+			// NOTE: do not log result.stderr in case of exception
+			// - it is contained in the returned result should be logged later
+		} finally {
+			await this._mutex.lock();
+			
+			try {
+				if (output) logOutput(output);
+				if (error) logError(error);
+			} finally {
+				this._mutex.unlock();
+			}
+		}
 
 		return result;
 	}
