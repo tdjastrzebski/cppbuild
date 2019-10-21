@@ -38,28 +38,30 @@ Sample build step:
 ```
 Here is how it works:
 1. **command** is run for every file matching **filePattern**.  
-1. `-I[$${includePath}]`, `-D$${defines}` and `-include [$${forcedInclude}]` are repeated for every **includePath**, **defines** and **forcedInclude** value listed in [c_cpp_properties.json](c_cpp_properties.json) file.  
+1. `-I[$${includePath}]`, `-D$${defines}` and `-include [$${forcedInclude}]` are sub-templates repeated for every **includePath**, **defines** and **forcedInclude** value listed in [c_cpp_properties.json](c_cpp_properties.json) file.  
 1. `${fileDirectory}`, `${filePath}`, `${fileName}` are replaced by the name, path and relative directory of the file being processed.
 1. `${outputDirectory}` value is built as defined by **outputDirectory** template.
 1. `${buildTypeParams}` is defined in build type section.
 1. Strings in `[]` are treated as paths and will be quoted if path contains whitespace.
 
 # Notes
-1. **filePattern**/**fileList** use Glob syntax. Tool internally relies on [Glob](https://github.com/isaacs/node-glob) so more advanced file patterns and exclusions are supported.
+1. **filePattern**/**fileList** use [glob syntax](https://en.wikipedia.org/wiki/Glob_(programming)). Tool internally relies on [glob module](https://github.com/isaacs/node-glob) so more advanced file patterns and exclusions are supported. E.g. exclusions.
 1. **filePattern**/**fileList** are mutually exclusive. If **filePattern** is used, command will be executed for every file. In contrast, **fileList** only populates `$${fileDirectory}`, `$${filePath}` and `$${fileName}` multi-valued variables.
 1. Standard `${name}` variable syntax is used. `$${name}` denotes multi-valued variable.
 1. Strings in `()` (e.g. `(-D$${defines})`) are repeated for every variable value inside. Therefore, only one multi-valued variable inside `()` is allowed. If sub-template contains path or file name which may require quoting `[]` can be used instead. E.g. `[$${fileName}.cpp]`.
 1. Environment values (`${env:name}`) and standard variables **workspaceRoot**/**workspaceFolder** and **workspaceRootFolderName** can be used.
 1. **filePattern** and **outputDirectory** are not required. Command without **filePattern** will be executed just once.
 1. **build types** do not have to be defined - they are optional and they can define multiple additional variables. If specified, **buildTypeName** variable is added.
-1. Variables can be supplied and overridden using command line options.
-1. It is possible to provide root folder, alternative configuration file paths and names using command line options. Run: `cppbuild --help` for all supported options.
 1. JSON file can contain comments - internally [MS JSONC](https://github.com/microsoft/node-jsonc-parser) parser is used.
+1. **includePath** and **forcedInclude** multi-value variables defined in `c_cpp_properties.json` can contain [glob patterns](https://en.wikipedia.org/wiki/Glob_(programming)). Paths will be expanded.
+1. Variables can be defined globally, on configuration, task and build type level. Low level variables override higher levels variables. CLI-provided variables have the highest priority.
+1. **cppbuild** can be run without `c_cpp_properties.json` file. Use `-p` flag with no file name.
+1. It is possible to provide root folder, alternative configuration file paths and names using command line options.  
+Run: `cppbuild --help` for all supported options.
 
 # Further improvements
 I am certain this tool could be further improved in many ways, including both functionality and code structure. This is the second TypeScript program I have ever written (the first one was "hello world" app).  
-Probably it would be nice to be able to supply additional multi-valued variables and values - both from command line and build type.  
-It may be feasible to remove dependency on `c_cpp_properties.json` and **ms-vscode.cpptools** all together. This way this tool could be used for any build - not only C/C++.
+Probably it would be nice to be able to supply additional multi-valued variables and values from command line. This currently is not supported.
 
 Please do not hesitate to suggest fixes and improvements. Pull requests are more than welcome.
 

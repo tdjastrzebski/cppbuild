@@ -2,7 +2,34 @@
 	"title": "Build File Schema",
 	"description": "VS Code C/C++ Build File Schema",
 	"type": "object",
+	"definitions": {
+		"params": {
+			"type": "object",
+			"description": "name/value pairs",
+			"minProperties": 1,
+			"additionalProperties": {
+				"oneOf": [
+					{
+						"type": "string",
+						"minLength": 0
+					},
+					{
+						"type": "array",
+						"items": {
+							"type": "string",
+							"minLength": 1
+						}
+					}
+				]
+			},
+			"examples": [
+				"\"buildTypeParams\": \"-O0 -g\"",
+				"\"buildTypeParams\": [\"-Os\", \"-g1\"]"
+			]
+		}
+	},
 	"properties": {
+		"params": { "$ref": "#/definitions/params" },
 		"version": {
 			"type": "integer",
 			"description": "file schema version",
@@ -16,6 +43,7 @@
 			"items": {
 				"type": "object",
 				"properties": {
+					"params": { "$ref": "#/definitions/params" },
 					"name": {
 						"type": "string",
 						"description": "configuration name",
@@ -39,24 +67,14 @@
 						"items": {
 							"type": "object",
 							"properties": {
+								"params": { "$ref": "#/definitions/params" },
 								"name": {
 									"type": "string",
 									"description": "build type name, e.g. DEBUG or RELEASE",
 									"minLength": 1,
 									"examples": [
-										"DEBUG", "RELEASE"
-									]
-								},
-								"params": {
-									"type": "object",
-									"description": "name/value pairs",
-									"minProperties": 1,
-									"additionalProperties": {
-										"type": "string"
-									},
-									"examples": [
-										"\"buildTypeParams\": \"-O0 -g\"",
-										"\"buildTypeParams\": \"-Os -g1\""
+										"DEBUG",
+										"RELEASE"
 									]
 								}
 							},
@@ -71,6 +89,7 @@
 						"items": {
 							"type": "object",
 							"properties": {
+								"params": { "$ref": "#/definitions/params" },
 								"name": {
 									"type": "string",
 									"description": "build step name",

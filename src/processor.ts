@@ -74,23 +74,19 @@ function getTemplateReplacements(template: string, extraParams: IStringDictionar
 }
 
 function formatPath(pathString: string): string {
-	// TODO: normalize/validate path?
-	// TODO: always use backslash as path separator?
+	pathString = path.normalize(pathString);
+	pathString = pathString.trim();
+	pathString = pathString.replace(/\\/g, '/');
 
-	// fix path separators
-	if (path.sep == '\\') {
-		pathString = pathString.replace(/\//g, '\\');
-	} else if (path.sep == '/') {
-		pathString = pathString.replace(/\\/g, '/');
+	if (pathString.indexOf(' ') != -1) {
+		// TODO: check for single quotes as well?
+		if (pathString.substr(0, 1) != '\"' && pathString.substr(pathString.length - 1, 1) != '\"') {
+			// add double quotes
+			return "\"" + pathString + "\"";
+		}
 	}
 
-	if (pathString.trim().indexOf(' ') == -1) {
-		// path does not contain whitespace
-		return pathString;
-	} else {
-		// add double quotes
-		return "\"" + pathString + "\"";
-	}
+	return pathString;
 }
 
 function removePrefixAndSuffix(text: string, prefix: string, suffix: string): string {

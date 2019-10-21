@@ -1,8 +1,8 @@
 {
   "name": "cppbuild",
-  "description": "VS Code C/C++ Build Tool",
+  "description": "Multi-step C/C++ Build Tool",
   "author": "Tomasz Jastrzębski",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "license": "MIT",
   "keywords": [
     "vscode",

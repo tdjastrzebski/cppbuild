@@ -6,7 +6,7 @@
 'use strict';
 
 import { IStringDictionary, checkFileExists, resolveVariables, ConfigurationJson, BuildStepsFileSchema, PropertiesFileSchema } from "./main";
-import { BuildConfigurations, BuildConfiguration, BuildType } from "./interfaces";
+import { BuildConfigurations, BuildConfiguration, BuildType, CppParams } from "./interfaces";
 import { globAsync, getJsonObject, ExecCmdResult, execCmd, addToDictionary } from "./utils";
 import { getCppConfigParams, validateJsonFile, createOutputDirectory, buildCommand } from "./processor";
 import { AsyncSemaphore } from "@esfx/async-semaphore";
@@ -19,21 +19,11 @@ export class Builder {
 	// TODO: improve, it is kinda 'poor man's approach', use prex CancellationToken?
 	private _aborting: boolean = false;
 
-	async runBuild(workspaceRoot: string, propertiesPath: string, buildStepsPath: string, configName: string, buildTypeName: string, cliExtraParams: IStringDictionary<string | string[]>, maxTaskCount: number, logOutput: (text: string) => void, logError: (text: string) => void) {
+	async runBuild(workspaceRoot: string, propertiesPath: string | undefined, buildStepsPath: string, configName: string, buildTypeName: string, cliExtraParams: IStringDictionary<string | string[]>, maxTaskCount: number, logOutput: (text: string) => void, logError: (text: string) => void) {
 		const workspaceRootFolderName = path.basename(workspaceRoot);
 		const extraParams: IStringDictionary<string | string[]> = { 'workspaceRoot': workspaceRoot, 'workspaceFolder': workspaceRoot, 'workspaceRootFolderName': workspaceRootFolderName, 'configName': configName };
 
 		if (buildTypeName) extraParams['buildTypeName'] = buildTypeName;
-
-		let errors = validateJsonFile(buildStepsPath, BuildStepsFileSchema);
-		if (errors) {
-			throw new Error(`'${buildStepsPath}' file schema validation error(s).\n${(<string[]>errors).join('\n\n')}`);
-		}
-
-		errors = validateJsonFile(propertiesPath, PropertiesFileSchema);
-		if (errors) {
-			throw new Error(`'${propertiesPath}' file schema validation error(s).\n${(<string[]>errors).join('\n\n')}`);
-		}
 
 		if (!configName) {
 			throw new Error('Configuration name argument must be provided.');
@@ -43,28 +33,51 @@ export class Builder {
 			throw new Error('Maximum number of concurrent tasks must be greater than 0.');
 		}
 
-		if (await checkFileExists(propertiesPath) === false) {
+		if (propertiesPath && await checkFileExists(propertiesPath) === false) {
 			throw new Error(`C/C++ properties file '${propertiesPath}' not found.`);
+		}
+
+		let cppParams: CppParams | undefined;
+
+		if (propertiesPath) {
+			let errors = validateJsonFile(propertiesPath, PropertiesFileSchema);
+			if (errors) {
+				throw new Error(`'${propertiesPath}' file schema validation error(s).\n${(<string[]>errors).join('\n\n')}`);
+			}
+
+			const configurationJson: ConfigurationJson | undefined = getJsonObject(propertiesPath);
+
+			if (!configurationJson) {
+				throw new Error(`Configuration '${configName}' not found in '${propertiesPath}' file.`);
+			}
+
+			if (configurationJson.version !== 4) {
+				throw new Error(`Unsupported C/C++ properties file version '${configurationJson.version}'.`);
+			}
+
+			cppParams = getCppConfigParams(configurationJson, configName);
+
+			if (!cppParams) {
+				throw new Error(`Configuration name '${configName}' not found in '${propertiesPath}' file.`);
+			}
+
+			// fix/expand includePaths and forcedInclude - since paths may contain '**' wildcards
+			if (cppParams.includePath) cppParams.includePath = await this.expandPaths(workspaceRoot, extraParams, cppParams.includePath);
+			extraParams['includePath'] = cppParams.includePath || [];
+
+			if (cppParams.forcedInclude) cppParams.forcedInclude = await this.expandPaths(workspaceRoot, extraParams, cppParams.forcedInclude);
+			extraParams['forcedInclude'] = cppParams.forcedInclude || [];
+
+			extraParams['defines'] = cppParams.defines || [];
 		}
 
 		if (await checkFileExists(buildStepsPath) === false) {
 			throw new Error(`Build steps file '${buildStepsPath}' not found.`);
 		}
 
-		const configurationJson: ConfigurationJson | undefined = getJsonObject(propertiesPath);
-
-		if (!configurationJson) {
-			throw new Error(`Configuration '${configName}' not found in '${propertiesPath}' file.`);
-		}
-
-		if (configurationJson.version !== 4) {
-			throw new Error(`Unsupported C/C++ properties file version '${configurationJson.version}'.`);
-		}
-
-		const cppParams = getCppConfigParams(configurationJson, configName);
-
-		if (!cppParams) {
-			throw new Error(`Configuration name '${configName}' not found in '${propertiesPath}' file.`);
+		let errors = validateJsonFile(buildStepsPath, BuildStepsFileSchema);
+		if (errors) {
+			throw new Error(`'${buildStepsPath}' file schema validation error(s).\n${(<string[]>errors).join('\n\n')}`);
 		}
 
 		const buildConfigs: BuildConfigurations | undefined = getJsonObject(buildStepsPath);
@@ -78,6 +91,8 @@ export class Builder {
 		if (!buildConfig) {
 			throw new Error(`Build configuration '${configName}' not found in file '${buildStepsPath}'.`);
 		}
+
+		let buildType: BuildType | undefined;
 
 		if (buildTypeName) {
 			// build type specified
@@ -93,29 +108,28 @@ export class Builder {
 				throw new Error(`Build type '${buildTypeName}' defined more than once for configuration '${configName}'.`);
 			}
 
-			const buildType: BuildType = buildTypes[0];
-			if (buildType.params) addToDictionary(buildType.params, extraParams);
+			buildType = buildTypes[0];
 		}
 
-		// fix/expand includePaths and forcedInclude - since paths may contain '**' wildcards
-		if (cppParams.includePath) cppParams.includePath = await this.expandPaths(workspaceRoot, extraParams, cppParams.includePath);
-		extraParams['includePath'] = cppParams.includePath || [];
-
-		if (cppParams.forcedInclude) cppParams.forcedInclude = await this.expandPaths(workspaceRoot, extraParams, cppParams.forcedInclude);
-		extraParams['forcedInclude'] = cppParams.forcedInclude || [];
-
-		extraParams['defines'] = cppParams.defines || [];
-
-		// apply command line params last - they override build file params
-		if (cliExtraParams) addToDictionary(cliExtraParams, extraParams);
+		if (buildConfigs.params) addToDictionary(buildConfigs.params, extraParams); // add global params
+		if (buildConfig.params) addToDictionary(buildConfig.params, extraParams); // add config params
 
 		// run build steps
 		for (const buildStep of buildConfig.buildSteps) {
-			if (buildStep.filePattern) buildStep.filePattern = resolveVariables(buildStep.filePattern, extraParams);
-			if (buildStep.fileList) buildStep.fileList = resolveVariables(buildStep.fileList, extraParams);
+			const stepParams = deepClone(extraParams);
+			if (buildStep.params) addToDictionary(buildStep.params, stepParams); // add step params
+			if (buildType && buildType.params) addToDictionary(buildType.params, stepParams); // add build type params
+			// apply command line params last - they override any other params
+			if (cliExtraParams) addToDictionary(cliExtraParams, stepParams);
+			
+			if (buildStep.filePattern && buildStep.fileList) {
+				throw new Error(`Build step '${buildStep.name}' has both filePattern and fileList variables defined.`);
+			}
+			if (buildStep.filePattern) buildStep.filePattern = resolveVariables(buildStep.filePattern, stepParams);
+			if (buildStep.fileList) buildStep.fileList = resolveVariables(buildStep.fileList, stepParams);
 
 			try {
-				await this.runBuildStep(workspaceRoot, buildStep.command, extraParams, buildStep.name, maxTaskCount, logOutput, logError, buildStep.filePattern, buildStep.fileList, buildStep.outputDirectory);
+				await this.runBuildStep(workspaceRoot, buildStep.command, stepParams, buildStep.name, maxTaskCount, logOutput, logError, buildStep.filePattern, buildStep.fileList, buildStep.outputDirectory);
 			} catch (e) {
 				throw new Error(`An error occurred during '${buildStep.name}' step - terminating.\n${e.message}`);
 			}
@@ -243,7 +257,7 @@ export class Builder {
 
 		try {
 			result = await execCmd(commandLine, { cwd: rootPath });
-			
+
 			if (result) {
 				if (output && result.stdout) output += '\n';
 				output += result.stdout;
@@ -254,17 +268,17 @@ export class Builder {
 		} catch (e) {
 			error = 'Error while executing: ' + commandLine;
 			result = e as ExecCmdResult;
-			
+
 			if (result) {
 				if (output && result.stdout) output += '\n';
 				output += result.stdout;
 				output = output.trimRight();
 			}
 			// NOTE: do not log result.stderr in case of exception
-			// - it is contained in the returned result should be logged later
+			// - it is contained in the returned result and should be logged later
 		} finally {
 			await this._mutex.lock();
-			
+
 			try {
 				if (output) logOutput(output);
 				if (error) logError(error);

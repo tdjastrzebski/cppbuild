@@ -12,7 +12,7 @@ export interface IStringDictionary<V> {
 export interface BuildConfigurations {
 	version: number;
 	configurations: BuildConfiguration[];
-	//params?: {[key: string]: string}; // TODO: consider adding
+	params?: { [key: string]: string | string[] };
 }
 
 export interface BuildConfiguration {
@@ -20,7 +20,7 @@ export interface BuildConfiguration {
 	problemMatchers?: string[];
 	buildTypes?: BuildType[];
 	buildSteps: BuildStep[];
-	//params?: {[key: string]: string}; // TODO: consider adding
+	params?: { [key: string]: string | string[] };
 }
 
 export interface BuildType {
@@ -34,7 +34,7 @@ export interface BuildStep {
 	fileList?: string;
 	outputDirectory?: string;
 	command: string;
-	//params?: {[key: string]: string}; // TODO: consider adding
+	params?: { [key: string]: string | string[] };
 }
 
 export interface BuildInfo {

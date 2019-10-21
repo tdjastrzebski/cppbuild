@@ -15,33 +15,34 @@ import { ToolName, ToolVersion, PropertiesFolder, BuildStepsFile, PropertiesFile
 import { Builder } from './builder';
 
 let _workspaceRoot: string = process.cwd();
-let _propertiesPath: string;
-let _buildStepsPath: string;
+let _propertiesFile: string | undefined = undefined;
+let _buildFile: string;
 let _configName: string | undefined = undefined;
 let _buildTypeName: string | undefined = undefined;
-let _maxTaskCount: number = 4;
+let _maxTask: number = 4;
+const _description = `Multi-step C/C++ Build Tool version ${ToolVersion}\nhttps://github.com/tdjastrzebski/cppbuild`;
 
 const program = new cmd.Command();
 program.name(ToolName)
 	.version(ToolVersion, '--version', 'output the current version')
-	.description('VS Code C/C++ Build Tool\nhttps://github.com/tdjastrzebski/cppbuild')
+	.description(_description)
 	.usage(`<configuration name> [build type] [options]`)
 	.arguments('<configuration name> [build type]')
-	.option('-w, --workspace-root <path>', 'workspace root path - default is th current folder')
-	.option('-b, --build-file <file>', `name of the file containing build configurations (default: '${PropertiesFolder}/${BuildStepsFile}')`)
-	.option('-p, --properties-file <file>', `name of the file containing C/C++ configurations (default: '${PropertiesFolder}/${PropertiesFile}')`)
+	.option('-w, --workspace-root <path>', 'workspace root path (default: the current folder)')
+	.option('-b, --build-file <file>', `name of the file containing build steps definitions (default: '${PropertiesFolder}/${BuildStepsFile}')`)
+	.option('-p, --properties-file [file]', `name of the file containing C/C++ configurations (default: '${PropertiesFolder}/${PropertiesFile}')`)
 	.option('-v, --variable <name=value>', 'variable name and value - can be specified multiple times', parseVariables)
-	.option('-j, --max-tasks <number>', `maximum number of tasks run in parallel (default: ${_maxTaskCount})`)
+	.option('-j, --max-tasks <number>', `maximum number of tasks run in parallel (default: ${_maxTask})`)
 	.action((config, build) => { _configName = config; _buildTypeName = build; });
 program.parse(process.argv);
 
 if (program.workspaceRoot) _workspaceRoot = program.workspaceRoot;
-_propertiesPath = path.join(_workspaceRoot, PropertiesFolder, PropertiesFile);
-_buildStepsPath = path.join(_workspaceRoot, PropertiesFolder, BuildStepsFile);
+_propertiesFile = path.join(_workspaceRoot, PropertiesFolder, PropertiesFile);
+_buildFile = path.join(_workspaceRoot, PropertiesFolder, BuildStepsFile);
 
 if (program.maxTasks) {
 	if (isNumber(program.maxTasks)) {
-		_maxTaskCount = program.maxTasks;
+		_maxTask = program.maxTasks;
 	} else {
 		console.error(`Invalid maximum number of concurrent tasks - option ignored.`);
 	}
@@ -51,32 +52,38 @@ const cliExtraParams = program.variable as IStringDictionary<string>;
 
 if (program.buildFile) {
 	if (path.isAbsolute(program.buildFile)) {
-		_buildStepsPath = program.buildFile;
+		_buildFile = program.buildFile;
 	} else {
-		_buildStepsPath = path.join(_workspaceRoot, program.buildFile);
+		_buildFile = path.join(_workspaceRoot, program.buildFile);
 	}
 }
 
-if (program.configurationsFile) {
+if (program.propertiesFile === true) {
+	_propertiesFile = undefined;
+} else if (program.propertiesFile) {
 	if (path.isAbsolute(program.configurationsFile)) {
-		_propertiesPath = program.configurationsFile;
+		_propertiesFile = program.configurationsFile;
 	} else {
-		_propertiesPath = path.join(_workspaceRoot, program.configurationsFile);
+		_propertiesFile = path.join(_workspaceRoot, program.configurationsFile);
 	}
 }
 
+console.log(_description);
+console.log();
 console.log('workspace root: ' + _workspaceRoot);
-console.log('C/C++ configurations file: ' + _propertiesPath);
-console.log('build configurations file: ' + _buildStepsPath);
+console.log('build steps file: ' + _buildFile);
+console.log('C/C++ properties file: ' + (_propertiesFile || 'none'));
 console.log('config name: ' + (_configName || 'none'));
 console.log('build type: ' + (_buildTypeName || 'none'));
+console.log();
+
+const builder = new Builder();
 
 (async () => {
 	const start = process.hrtime();
-	const builder = new Builder();
 
 	try {
-		await builder.runBuild(_workspaceRoot, _propertiesPath, _buildStepsPath, _configName!, _buildTypeName!, cliExtraParams, _maxTaskCount, logBuildOutput, logBuildError);
+		await builder.runBuild(_workspaceRoot, _propertiesFile, _buildFile, _configName!, _buildTypeName!, cliExtraParams, _maxTask, logBuildOutput, logBuildError);
 	} catch (e) {
 		const error = e as Error;
 		if (error) console.error(error.message);
@@ -97,6 +104,7 @@ function logBuildError(line: string) {
 	console.error(line);
 }
 
+// TODO: improve variable parsing, support multi-valued variables
 function parseVariables(variable: string, params: IStringDictionary<string> = {}): IStringDictionary<string> {
 	const i = variable.indexOf('=');
 	if (i <= 0) {
