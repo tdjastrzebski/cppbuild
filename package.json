@@ -2,7 +2,7 @@
   "name": "cppbuild",
   "description": "Multi-step C/C++ Build Tool",
   "author": "Tomasz Jastrzębski",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "license": "MIT",
   "keywords": [
     "vscode",
@@ -26,11 +26,11 @@
     "@types/glob": "^7.1.1",
     "ajv": "^6.10.2",
     "commander": "^3.0.2",
-    "glob": "^7.1.4",
-    "jsonc-parser": "^2.1.1"
+    "glob": "^7.1.5",
+    "jsonc-parser": "^2.2.0"
   },
   "devDependencies": {
-    "@types/node": "^12.7.12",
+    "@types/node": "^12.11.7",
     "ts-node": "^8.4.1",
     "tslint": "^5.18.0",
     "typescript": "^3.6.4"
