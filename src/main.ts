@@ -16,7 +16,7 @@ export { getJsonObject } from "./utils";
 export { getBuildInfos } from "./processor";
 export { Builder } from "./builder";
 
-export const ToolVersion: string = '1.1.0';
+export const ToolVersion: string = '1.1.1';
 export const ToolName: string = 'cppbuild';
 export const PropertiesFolder: string = '.vscode';
 export const PropertiesFile: string = 'c_cpp_properties.json';
@@ -43,7 +43,7 @@ const propertiesPath: string = path.join(rootPath, PropertiesFile);
 const buildStepsPath: string = path.join(rootPath, BuildStepsFile);
 (async () => {
 	try {
-		const infos = await getBuildInfos(propertiesPath, buildStepsPath);
+		const infos = await getBuildInfos(buildStepsPath, propertiesPath);
 		infos.forEach(i => {
 			console.info(i.name);
 		});

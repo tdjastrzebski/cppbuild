@@ -1,5 +1,6 @@
 # What is it?
-**cppbuild** is a simple command line multi-step build tool made for building VS Code C/C++ projects based on popular [ms-vscode.cpptools](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools) settings and its own build steps.
+**CppBuild** is a multi-step build command line tool based on JSON, string templates and [glob syntax](https://en.wikipedia.org/wiki/Glob_(programming)).  
+**CppBuild** has originally been designed to work together with popular [vscode-cpptools](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools) extension and use its variables combined with its own build steps but it can be used without [vscode-cpptools](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools) as well and is not limited to C/C++ builds.
 
 # Why?
 While working on C/C++ for embedded devices in VS Code I wanted to simplify multi-step build process configuration and maintenance. Also, I wanted to eliminate setting duplication (include paths and defines) between `c_cpp_properties.json` and widely used MAKE/CMake files. Although these tools are industry standard, I am not a big fan of them. All that led me to the development of a completely new build tool.  
@@ -61,7 +62,7 @@ Run: `cppbuild --help` for all supported options.
 
 # Further improvements
 I am certain this tool could be further improved in many ways, including both functionality and code structure. This is the second TypeScript program I have ever written (the first one was "hello world" app).  
-Probably it would be nice to be able to supply additional multi-valued variables and values from command line. This currently is not supported.
+Probably it would be nice to be able to supply additional multi-valued variables from command line. This currently is not supported.
 
 Please do not hesitate to suggest fixes and improvements. Pull requests are more than welcome.
 

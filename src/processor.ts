@@ -150,25 +150,35 @@ export function buildCommand(template: string, extraParams: IStringDictionary<st
  * @param propertiesPath path to C/C++ properties file, typically .vscode/c_cpp_properties.json
  * @param buildStepsPath path to build file, typically .vscode/c_cpp_build.json
  */
-export async function getBuildInfos(propertiesPath: string, buildStepsPath: string): Promise<BuildInfo[]> {
+export async function getBuildInfos(buildStepsPath: string, propertiesPath?: string): Promise<BuildInfo[]> {
 	const configs: BuildInfo[] = [];
-
-	if (false === await checkFileExists(propertiesPath)) {
-		throw new Error(`'${propertiesPath}' file not found.`);
-	}
 
 	if (false === await checkFileExists(buildStepsPath)) {
 		throw new Error(`'${buildStepsPath}' file not found.`);
 	}
 
-	const configurationJson: ConfigurationJson | undefined = getJsonObject(propertiesPath);
+	let configurationJson: ConfigurationJson | undefined;
 
-	if (!configurationJson) {
-		throw new Error(`'${propertiesPath}' file read problem.`);
-	}
+	if (propertiesPath) {
+		if (false === await checkFileExists(propertiesPath)) {
+			throw new Error(`'${propertiesPath}' file not found.`);
+		}
 
-	if (configurationJson.version != 4) {
-		throw new Error(`Unsupported '${propertiesPath}' config file version`);
+		const errors = validateJsonFile(propertiesPath, PropertiesFileSchema);
+
+		if (errors) {
+			throw new Error(`'${propertiesPath}' file schema validation error(s).\n${(<string[]>errors).join('\n\n')}`);
+		}
+
+		configurationJson = getJsonObject(propertiesPath);
+
+		if (!configurationJson) {
+			throw new Error(`'${propertiesPath}' file read problem.`);
+		}
+
+		if (configurationJson.version != 4) {
+			throw new Error(`Unsupported '${propertiesPath}' config file version`);
+		}
 	}
 
 	const buildConfigs: BuildConfigurations | undefined = getJsonObject(buildStepsPath);
@@ -182,33 +192,29 @@ export async function getBuildInfos(propertiesPath: string, buildStepsPath: stri
 		throw new Error(`'${buildStepsPath}' file schema validation error(s).\n${(<string[]>errors).join('\n\n')}`);
 	}
 
-	errors = validateJsonFile(propertiesPath, PropertiesFileSchema);
-	if (errors) {
-		throw new Error(`'${propertiesPath}' file schema validation error(s).\n${(<string[]>errors).join('\n\n')}`);
-	}
-
 	// find matching configs in config and build files
-	configurationJson.configurations.forEach(c => {
-		const matchingBuilds = buildConfigs.configurations.filter(b => b.name == c.name);
+	buildConfigs.configurations.forEach(c => {
+		if (configurationJson) {
+			const matchingConfigs = configurationJson.configurations.filter(b => b.name == c.name);
 
-		if (matchingBuilds.length == 0) {
-			return; // no match found
-		} else if (matchingBuilds.length > 1) {
-			throw new Error(`Build config '${c.name}' is defined more than once.`);
-		} else {
-			const build = matchingBuilds[0];
-			const types: string[] = [];
-
-			if (build.buildTypes) {
-				build.buildTypes.forEach(t => {
-					if (types.indexOf(t.name) !== -1) {
-						throw new Error(`Build type '${t.name}' is defined more than once for config '${c.name}'.`);
-					}
-					types.push(t.name);
-				});
+			if (matchingConfigs.length == 0) {
+				return; // no match found
+			} else if (matchingConfigs.length > 1) {
+				throw new Error(`Build config '${c.name}' is defined more than once.`);
 			}
-			configs.push({ name: c.name, buildTypes: types, problemMatchers: build.problemMatchers });
 		}
+
+		const types: string[] = [];
+
+		if (c.buildTypes) {
+			c.buildTypes.forEach(t => {
+				if (types.indexOf(t.name) !== -1) {
+					throw new Error(`Build type '${t.name}' is defined more than once for config '${c.name}'.`);
+				}
+				types.push(t.name);
+			});
+		}
+		configs.push({ name: c.name, buildTypes: types, problemMatchers: c.problemMatchers });
 	});
 
 	return configs;

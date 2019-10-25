@@ -121,7 +121,7 @@ export class Builder {
 			if (buildType && buildType.params) addToDictionary(buildType.params, stepParams); // add build type params
 			// apply command line params last - they override any other params
 			if (cliExtraParams) addToDictionary(cliExtraParams, stepParams);
-			
+
 			if (buildStep.filePattern && buildStep.fileList) {
 				throw new Error(`Build step '${buildStep.name}' has both filePattern and fileList variables defined.`);
 			}
