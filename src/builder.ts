@@ -154,12 +154,14 @@ export class Builder {
 					// run for each file
 					const actionName: string = stepName + ': ' + filePath;
 					const fileDirectory: string = path.dirname(filePath);
-					const extName: string = path.extname(filePath);
+					const fileExtension: string = path.extname(filePath);
 					const fullFileName: string = path.basename(filePath);
-					const fileName: string = fullFileName.substr(0, fullFileName.length - extName.length);
+					const fileName: string = fullFileName.substr(0, fullFileName.length - fileExtension.length);
 					params['fileDirectory'] = fileDirectory == '.' ? '' : fileDirectory;
 					params['filePath'] = filePath;
 					params['fileName'] = fileName;
+					params['fullFileName'] = fullFileName;
+					params['fileExtension'] = fileExtension.length > 0 ? fileExtension.substr(1) : "";
 
 					if (outputDirectoryTmpl) {
 						params['outputDirectory'] = await createOutputDirectory(workspaceRoot, outputDirectoryTmpl, params);
@@ -189,18 +191,24 @@ export class Builder {
 				const filePaths: string[] = await globAsync(fileList, { cwd: workspaceRoot });
 				const fileDirectories: string[] = [];
 				const fileNames: string[] = [];
+				const fullFileNames: string[] = [];
+				const fileExtensions: string[] = [];
 
 				filePaths.map(filePath => {
 					const fileDirectory = path.dirname(filePath);
 					fileDirectories.push(fileDirectory == '.' ? '' : fileDirectory);
-					const extName: string = path.extname(filePath);
+					let fileExtension: string = path.extname(filePath);
 					const fullFileName: string = path.basename(filePath);
-					fileNames.push(fullFileName.substr(0, fullFileName.length - extName.length));
+					fileNames.push(fullFileName.substr(0, fullFileName.length - fileExtension.length));
+					fullFileNames.push(fullFileName);
+					fileExtensions.push(fileExtension.length > 0 ? fileExtension.substr(1) : "");
 				});
 
 				extraParams['fileDirectory'] = fileDirectories;
 				extraParams['filePath'] = filePaths;
 				extraParams['fileName'] = fileNames;
+				extraParams['fullFileName'] = fullFileNames;
+				extraParams['fileExtension'] = fileExtensions;
 			}
 
 			if (outputDirectoryTmpl) {

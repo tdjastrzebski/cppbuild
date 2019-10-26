@@ -16,7 +16,7 @@ export { getJsonObject } from "./utils";
 export { getBuildInfos } from "./processor";
 export { Builder } from "./builder";
 
-export const ToolVersion: string = '1.1.2';
+export const ToolVersion: string = '1.1.3';
 export const ToolName: string = 'cppbuild';
 export const PropertiesFolder: string = '.vscode';
 export const PropertiesFile: string = 'c_cpp_properties.json';
