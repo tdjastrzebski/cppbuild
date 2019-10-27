@@ -43,7 +43,7 @@ Here is how it works:
 1. **command** (here g++ compiler) is run for every file matching **filePattern** (**/*.cpp).
 1. `(-I[$${includePath}])` and `(-D$${defines})` define sub-templates repeated for every **includePath** and **defines** value listed in corresponding configuration from **c_cpp_properties.json** file.
 1. `${fileName}`, `${filePath}` and `${fileDirectory}` are replaced by the name, path and relative directory of the file being processed.
-1. `${outputDirectory}` value is built as defined by **outputDirectory** template. Note that **outputDirectory** can be build using relative path of the file being processed. As a result, inside **build** folder output files will be placed in the same directory structure.
+1. `${outputDirectory}` value is built as defined by **outputDirectory** template. Note that **outputDirectory** can be build using relative path of the file being processed. As a result, inside the **build** folder directory structure will resemble the input directory structure.
 1. `${buildTypeParams}` is defined in **build type** section. For DEBUG build type `-O0 -g` switches will be added.
 1. Strings in `[]` are treated as paths and will be quoted if path contains whitespace. Path separators may be modified.
 
@@ -58,6 +58,7 @@ In contrast, **fileList** only populates `$${fileDirectory}`, `$${filePath}` and
 1. **build types** do not have to be defined - they are optional and they can define multiple additional variables. If specified, **buildTypeName** variable is added.
 1. **includePath** and **forcedInclude** multi-value variables defined in `c_cpp_properties.json` can contain [glob patterns](https://en.wikipedia.org/wiki/Glob_(programming)). Paths will be expanded.
 1. Variables can be defined globally, on configuration, task and build type level. Low level variables override higher levels variables. Command line provided variables have the highest priority.
+1. Variable values can contain other variables.
 1. JSON file can contain comments - internally [MS JSONC](https://github.com/microsoft/node-jsonc-parser) parser is used.
 1. **CppBuild** can be run without `c_cpp_properties.json` file. Use `-p` flag with no file name.
 1. It is possible to provide root folder, alternative configuration file paths and names using command line options.  
@@ -68,8 +69,9 @@ The following variables have been predefined:
 1. **workspaceRoot**/**workspaceFolder** (full folder path) and **workspaceRootFolderName** (just the folder name)
 1. **configName** - selected build configuration name
 1. **buildTypeName** - selected build type name (optional)
-1. **filePath** (relative file path), **fileDirectory** (relative file directory), **fileName** (file name without extension), **fullFileName** (file name with extension), **fileExtension**  
+1. **filePath** (relative file path), **fileDirectory** (relative file directory), **fileName** (file name without extension), **fullFileName** (file name with extension), **fileExtension** (without .)  
 The above variables are available when **filePattern** or **fileList** build step property is defined. When **filePattern** is defined, variables have single values and `command` is executed for every file matching the specified pattern. When **fileList** is defined, variables have multiple values but build step `command` is executed just once.
+1. **outputDirectory** - output directory, available when build step **outputDirectory** template is specified
 1. **includePath**, **defines** and **forcedInclude** - multi-valued variables populated from `c_cpp_properties.json` (if used)
 
 # Further improvements
