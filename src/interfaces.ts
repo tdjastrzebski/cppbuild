@@ -33,6 +33,7 @@ export interface BuildStep {
 	filePattern?: string;
 	fileList?: string;
 	outputDirectory?: string;
+	outputFile?: string;
 	command: string;
 	params?: { [key: string]: string | string[] };
 }

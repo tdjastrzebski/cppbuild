@@ -23,11 +23,7 @@ export function getCppConfigParams(configurationJson: ConfigurationJson, configN
 
 const _mutex: AsyncMutex = new AsyncMutex();
 
-export async function createOutputDirectory(rootPath: string, outputDirectoryTmpl: string, extraParams: IStringDictionary<string | string[]>): Promise<string> {
-	let outputDirectoryPath: string = resolveVariables(outputDirectoryTmpl, extraParams);
-	outputDirectoryPath = resolveVariables(outputDirectoryPath, extraParams);
-	// remove trailing / or \
-	if (outputDirectoryPath.endsWith('/') || outputDirectoryPath.endsWith('\\')) outputDirectoryPath = outputDirectoryPath.substr(0, outputDirectoryPath.length - 1);
+export async function createOutputDirectory(rootPath: string, outputDirectoryPath: string) {
 	// TODO: remove double \\ from path in case variable resolved to empty string
 	if (false === path.isAbsolute(outputDirectoryPath)) outputDirectoryPath = path.join(rootPath, outputDirectoryPath);
 	if (true === await checkDirectoryExists(outputDirectoryPath)) return outputDirectoryPath;
@@ -39,7 +35,6 @@ export async function createOutputDirectory(rootPath: string, outputDirectoryTmp
 	} finally {
 		lk.unlock();
 	}
-	return outputDirectoryPath;
 }
 
 function getTemplateReplacements(template: string, extraParams: IStringDictionary<string | string[]>): string[] | undefined {

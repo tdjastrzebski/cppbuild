@@ -29,7 +29,9 @@
 		}
 	},
 	"properties": {
-		"params": { "$ref": "#/definitions/params" },
+		"params": {
+			"$ref": "#/definitions/params"
+		},
 		"version": {
 			"type": "integer",
 			"description": "file schema version",
@@ -43,7 +45,9 @@
 			"items": {
 				"type": "object",
 				"properties": {
-					"params": { "$ref": "#/definitions/params" },
+					"params": {
+						"$ref": "#/definitions/params"
+					},
 					"name": {
 						"type": "string",
 						"description": "configuration name",
@@ -67,7 +71,9 @@
 						"items": {
 							"type": "object",
 							"properties": {
-								"params": { "$ref": "#/definitions/params" },
+								"params": {
+									"$ref": "#/definitions/params"
+								},
 								"name": {
 									"type": "string",
 									"description": "build type name, e.g. DEBUG or RELEASE",
@@ -89,7 +95,9 @@
 						"items": {
 							"type": "object",
 							"properties": {
-								"params": { "$ref": "#/definitions/params" },
+								"params": {
+									"$ref": "#/definitions/params"
+								},
 								"name": {
 									"type": "string",
 									"description": "build step name",
@@ -120,18 +128,24 @@
 									"type": "string",
 									"description": "output directory template",
 									"minLength": 1,
-									"pattern": ".",
 									"examples": [
 										"build/${fileDirectory}"
+									]
+								},
+								"outputFile": {
+									"type": "string",
+									"description": "output file template",
+									"minLength": 1,
+									"examples": [
+										"build/${fileDirectory}/${fileName}.o"
 									]
 								},
 								"command": {
 									"type": "string",
 									"description": "output directory template",
 									"minLength": 1,
-									"pattern": ".",
 									"examples": [
-										"[${env:ArmToolchainPath}/bin/arm-none-eabi-gcc] -c ${buildTypeParams} (-I[*{includePath}]) (-D*{defines}) (-include [*{forcedInclude}]) [${filePath}] -o [${outputDirectory}/${fileName}.o]"
+										"clang -c ${buildTypeParams} (-I[*{includePath}]) (-D*{defines}) (-include [*{forcedInclude}]) [${filePath}] -o [${outputFile}]"
 									]
 								}
 							},
@@ -139,6 +153,11 @@
 								"name",
 								"command"
 							],
+							"dependencies": {
+								"outputFile": [
+									"filePattern"
+								]
+							},
 							"additionalProperties": false
 						},
 						"minItems": 1

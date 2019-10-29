@@ -5,7 +5,13 @@ import * as fs from 'fs';
 import * as cp from 'child_process';
 import * as jsonc from 'jsonc-parser';
 import { SpawnAsyncResult, spawnAsync, SpawnAsyncError } from './spawnAsync';
-import { IStringDictionary } from './main';
+import { IStringDictionary, resolveVariables } from './main';
+
+export function resolveVariablesTwice(input: string, params: { [key: string]: string | string[] }): string {
+	let result: string = resolveVariables(input, params);
+	result = resolveVariables(result, params);
+	return result;
+}
 
 /**
  * Function creates object from json file.
@@ -65,6 +71,18 @@ export function getFileStatus(filePath: string): Promise<fs.Stats> {
 				reject(err);
 			} else {
 				resolve(stats);
+			}
+		});
+	});
+}
+
+export function getFileMTime(filePath: string): Promise<Date> {
+	return new Promise((resolve, reject) => {
+		fs.stat(filePath, (err, stats) => {
+			if (err) {
+				reject(err);
+			} else {
+				resolve(stats.mtime);
 			}
 		});
 	});
@@ -132,7 +150,7 @@ export async function spawnCommand(shell: string, commandLine: string, rootPath:
 }
 
 /** add elements of one dictionary to another dictionary */
-export function addToDictionary(source: IStringDictionary<string|string[]>, destination: IStringDictionary<string|string[]>) {
+export function addToDictionary(source: IStringDictionary<string | string[]>, destination: IStringDictionary<string | string[]>) {
 	Object.keys(source).forEach(key => {
 		let value = source[key];
 		destination[key] = value;

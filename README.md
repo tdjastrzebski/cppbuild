@@ -43,7 +43,7 @@ Here is how it works:
 1. **command** (here g++ compiler) is run for every file matching **filePattern** (**/*.cpp).
 1. `(-I[$${includePath}])` and `(-D$${defines})` define sub-templates repeated for every **includePath** and **defines** value listed in corresponding configuration from **c_cpp_properties.json** file.
 1. `${fileName}`, `${filePath}` and `${fileDirectory}` are replaced by the name, path and relative directory of the file being processed.
-1. `${outputDirectory}` value is built as defined by **outputDirectory** template. Note that **outputDirectory** can be build using relative path of the file being processed. As a result, inside the **build** folder directory structure will resemble the input directory structure.
+1. `${outputDirectory}` value is built as defined by **outputDirectory** template. Note that **outputDirectory** can be build using relative path of the file being processed. As a result, inside the output **build** folder directory structure will resemble the input directory structure. Required directory will be created if it does not exists.
 1. `${buildTypeParams}` is defined in **build type** section. For DEBUG build type `-O0 -g` switches will be added.
 1. Strings in `[]` are treated as paths and will be quoted if path contains whitespace. Path separators may be modified.
 
@@ -71,8 +71,9 @@ The following variables have been predefined:
 1. **buildTypeName** - selected build type name (optional)
 1. **filePath** (relative file path), **fileDirectory** (relative file directory), **fileName** (file name without extension), **fullFileName** (file name with extension), **fileExtension** (without .)  
 The above variables are available when **filePattern** or **fileList** build step property is defined. When **filePattern** is defined, variables have single values and `command` is executed for every file matching the specified pattern. When **fileList** is defined, variables have multiple values but build step `command` is executed just once.
-1. **outputDirectory** - output directory, available when build step **outputDirectory** template is specified
+1. **outputDirectory** - output directory, available when build step **outputDirectory** template is specified. Path will be created if it does not exist.
 1. **includePath**, **defines** and **forcedInclude** - multi-valued variables populated from `c_cpp_properties.json` (if used)
+1. **outputFile** - available only when **filePattern** is specified.
 
 # Further improvements
 I am certain this tool could be further improved in many ways, including both functionality and code structure. This is the second TypeScript program I have ever written (the first one was "hello world" app).  

@@ -6,14 +6,15 @@
 'use strict';
 
 import { IStringDictionary, checkFileExists, resolveVariables, ConfigurationJson, BuildStepsFileSchema, PropertiesFileSchema } from "./main";
-import { BuildConfigurations, BuildConfiguration, BuildType, CppParams } from "./interfaces";
-import { globAsync, getJsonObject, ExecCmdResult, execCmd, addToDictionary } from "./utils";
+import { BuildConfigurations, BuildConfiguration, BuildType, CppParams, BuildStep } from "./interfaces";
+import { globAsync, getJsonObject, ExecCmdResult, execCmd, addToDictionary, getFileMTime, getFileStatus, resolveVariablesTwice } from "./utils";
 import { getCppConfigParams, validateJsonFile, createOutputDirectory, buildCommand } from "./processor";
 import { AsyncSemaphore } from "@esfx/async-semaphore";
 import { AsyncMutex } from "@esfx/async-mutex";
 import { hasMagic } from "glob";
 import * as path from 'path';
 import { deepClone } from "./vscode";
+import { FSWatcher } from "fs";
 
 export class Builder {
 	// TODO: improve, it is kinda 'poor man's approach', use prex CancellationToken?
@@ -129,7 +130,7 @@ export class Builder {
 			if (buildStep.fileList) buildStep.fileList = resolveVariables(buildStep.fileList, stepParams);
 
 			try {
-				await this.runBuildStep(workspaceRoot, buildStep.command, stepParams, buildStep.name, maxTaskCount, logOutput, logError, buildStep.filePattern, buildStep.fileList, buildStep.outputDirectory);
+				await this.runBuildStep(workspaceRoot, buildStep, stepParams, maxTaskCount, logOutput, logError);
 			} catch (e) {
 				throw new Error(`An error occurred during '${buildStep.name}' step - terminating.\n${e.message}`);
 			}
@@ -137,10 +138,10 @@ export class Builder {
 	}
 
 	// TODO: consider adding a flag to allow to continue on errors
-	async runBuildStep(workspaceRoot: string, commandTmpl: string, extraParams: IStringDictionary<string | string[]>, stepName: string, maxTaskCount: number, logOutput: (text: string) => void, logError: (text: string) => void, filePattern?: string, fileList?: string, outputDirectoryTmpl?: string) {
-		if (filePattern) {
+	async runBuildStep(workspaceRoot: string, buildStep: BuildStep, extraParams: IStringDictionary<string | string[]>, maxTaskCount: number, logOutput: (text: string) => void, logError: (text: string) => void) {
+		if (buildStep.filePattern) {
 			// run command for each file
-			const filePaths: string[] = await globAsync(filePattern, { cwd: workspaceRoot });
+			const filePaths: string[] = await globAsync(buildStep.filePattern, { cwd: workspaceRoot });
 			// TODO: first create list of existing files
 			// TODO: implement better throttling - the problem with Semaphore approach is thread is started and then awaited
 			const semaphore: AsyncSemaphore = new AsyncSemaphore(maxTaskCount);
@@ -149,10 +150,11 @@ export class Builder {
 				if (this._aborting) return; // TODO: use @esfx/async-canceltoken
 				await semaphore.wait();
 				try {
-					if (false === await checkFileExists(path.join(workspaceRoot, filePath))) return;
+					const fullInputFilePath = path.join(workspaceRoot, filePath);
+					if (false === await checkFileExists(fullInputFilePath)) return;
 					const params = deepClone(extraParams);
 					// run for each file
-					const actionName: string = stepName + ': ' + filePath;
+					const actionName: string = buildStep.name + ': ' + filePath;
 					const fileDirectory: string = path.dirname(filePath);
 					const fileExtension: string = path.extname(filePath);
 					const fullFileName: string = path.basename(filePath);
@@ -163,11 +165,33 @@ export class Builder {
 					params['fullFileName'] = fullFileName;
 					params['fileExtension'] = fileExtension.length > 0 ? fileExtension.substr(1) : "";
 
-					if (outputDirectoryTmpl) {
-						params['outputDirectory'] = await createOutputDirectory(workspaceRoot, outputDirectoryTmpl, params);
+					if (buildStep.outputFile) {
+						let outputFilePath: string = resolveVariablesTwice(buildStep.outputFile, params);
+
+						const inputFileDate: Date = await getFileMTime(fullInputFilePath);
+						let fullOutputFilePath = outputFilePath;
+						if (!path.isAbsolute(fullOutputFilePath)) fullOutputFilePath = path.join(workspaceRoot, outputFilePath);
+
+						if (await checkFileExists(fullOutputFilePath) === true) {
+							const outputFileStats = await getFileStatus(fullOutputFilePath);
+							if (outputFileStats.mtime > inputFileDate) {
+								// input file has not been modified since output file modified - skip this file build
+								// TODO: add option to force build
+								return;
+							}
+						}
+						params['outputFile'] = outputFilePath;
+						const outputFileDirectory = path.dirname(outputFilePath);
+						await createOutputDirectory(workspaceRoot, outputFileDirectory);
 					}
 
-					let command: string = buildCommand(commandTmpl, params);
+					if (buildStep.outputDirectory) {
+						const outputDirectory = resolveVariablesTwice(buildStep.outputDirectory, params);
+						params['outputDirectory'] = outputDirectory;
+						await createOutputDirectory(workspaceRoot, outputDirectory);
+					}
+
+					let command: string = buildCommand(buildStep.command, params);
 					const result = await this.execCommand(command, workspaceRoot, actionName, logOutput, logError);
 					if (result && result.error) throw result.error;
 				} catch (e) {
@@ -187,8 +211,8 @@ export class Builder {
 		} else {
 			extraParams = deepClone(extraParams);
 
-			if (fileList) {
-				const filePaths: string[] = await globAsync(fileList, { cwd: workspaceRoot });
+			if (buildStep.fileList) {
+				const filePaths: string[] = await globAsync(buildStep.fileList, { cwd: workspaceRoot });
 				const fileDirectories: string[] = [];
 				const fileNames: string[] = [];
 				const fullFileNames: string[] = [];
@@ -211,12 +235,14 @@ export class Builder {
 				extraParams['fileExtension'] = fileExtensions;
 			}
 
-			if (outputDirectoryTmpl) {
-				extraParams['outputDirectory'] = await createOutputDirectory(workspaceRoot, outputDirectoryTmpl, extraParams);
+			if (buildStep.outputDirectory) {
+				const outputDirectory = resolveVariablesTwice(buildStep.outputDirectory, extraParams);
+				extraParams['outputDirectory'] = outputDirectory;
+				await createOutputDirectory(workspaceRoot, outputDirectory);
 			}
 
-			let command: string = buildCommand(commandTmpl, extraParams);
-			const result = await this.execCommand(command, workspaceRoot, stepName, logOutput, logError);
+			let command: string = buildCommand(buildStep.command, extraParams);
+			const result = await this.execCommand(command, workspaceRoot, buildStep.name, logOutput, logError);
 			if (result && result.error) throw result.error;
 		}
 	}

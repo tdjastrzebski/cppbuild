@@ -1,0 +1,45 @@
+{
+	"version": 1,
+	"params": {
+		"buildDir": "build"
+	},
+	"configurations": [
+		{
+			"name": "GCC",
+			"buildTypes": [
+				{
+					"name": "debug",
+					"params": {
+						"buildTypeParams": "-O0 -g",
+						"defines": [
+							"_DEBUG"
+						]
+					}
+				},
+				{
+					"name": "release",
+					"params": {
+						"buildTypeParams": "-O2 -g0",
+						"defines": []
+					}
+				}
+			],
+			"buildSteps": [
+				{
+					"name": "C++ Compile Sample Step",
+					"filePattern": "**/*.cpp",
+					"outputDirectory": "${buildDir}/${buildTypeName}/${fileDirectory}",
+					"command": "g++ -c -std=c++17 ${buildTypeParams} (-D$${defines}) [${filePath}] -o [${outputDirectory}/${fileName}.o]"
+				},
+				{
+					"name": "C++ Link Sample Step",
+					"fileList": "${buildDir}/${buildTypeName}/**/*.o",
+					"command": "g++ [$${filePath}] -o [${buildDir}/${buildTypeName}/main.exe]"
+				}
+			],
+			"problemMatchers": [
+				"$gcc"
+			]
+		}
+	]
+}

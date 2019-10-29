@@ -15,7 +15,7 @@
             ],
             "args": [
                 //"GCC", "DEBUG", "-w", "H:/DISCO-F769NI_LCD_demo", "-b", "H:/cppbuild/c_cpp_build.json", "-p", "H:/cppbuild/c_cpp_properties.json"
-                "GCC", "DEBUG", "-w", "H:/DISCO-F769NI_LCD_demo",  "-v", "buildTypeParams=-O0 -g -v -p"
+                "GCC", "debug", "-w", "H:/DISCO-F769NI_LCD_demo",
                 //"GCC", "DEBUG", "-w", "H:/DISCO-F769NI_LCD_demo", "-v"
                 //"Win32", "debug", "-w", "H:\\SimpleVsCodeC++App", "-p"
             ]
