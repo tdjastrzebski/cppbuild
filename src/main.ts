@@ -10,14 +10,10 @@ import { getBuildInfos, validateJsonFile } from './processor';
 import { getJsonObject } from './utils';
 import ajv from 'ajv';
 
-export { BuildConfigurations, BuildConfiguration, BuildType, BuildStep, BuildInfo, IStringDictionary } from "./interfaces";
-export { resolveVariables, checkFileExists, checkDirectoryExists, readDirectory, ConfigurationJson, Configuration, Browse, KnownCompiler } from "./cpptools";
-export { getJsonObject, execCmd, ExecCmdResult, spawnCommand } from "./utils";
-export { getBuildInfos } from "./processor";
-export { Builder } from "./builder";
+const pkg = require('../package.json');
 
-export const ToolVersion: string = '1.2.0';
-export const ToolName: string = 'cppbuild';
+export const ToolVersion: string = pkg.version;
+export const ToolName: string = pkg.name;
 export const PropertiesFolder: string = '.vscode';
 export const PropertiesFile: string = 'c_cpp_properties.json';
 export const BuildStepsFile: string = 'c_cpp_build.json';

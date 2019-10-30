@@ -1,5 +1,5 @@
 # What is it?
-**CppBuild** is a multi-step build command line tool based on JSON, string templates and [glob syntax](https://en.wikipedia.org/wiki/Glob_(programming)).  
+**CppBuild** is a multi-step incremental build command line tool based on JSON, string templates and [glob syntax](https://en.wikipedia.org/wiki/Glob_(programming)).  
 **CppBuild** has originally been designed to work together with the popular [vscode-cpptools](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools) extension and uses its variables combined with its own build steps but it can be used without [vscode-cpptools](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools) as well and is not limited to C/C++ builds.
 
 # Why?
@@ -30,12 +30,12 @@ Sample build step:
 ```
 "name": "C++ Compile",
 "filePattern": "**/*.cpp",
-"outputDirectory": "build/${buildTypeName}/${fileDirectory}",
-"command": "g++ -c ${buildTypeParams} (-I[$${includePath}]) (-D$${defines}) [${filePath}] -o [${outputDirectory}/${fileName}.o]"
+"outputFile": "build/${buildTypeName}/${fileDirectory}/${fileName}.o",
+"command": "g++ -c ${buildTypeParams} (-I[$${includePath}]) (-D$${defines}) [${filePath}] -o [${outputFile}]"
 ```
 Sample build type:
 ```
-"name": "DEBUG",
+"name": "debug",
 "params": { "buildTypeParams": "-O0 -g" }
 ```
 
@@ -43,9 +43,10 @@ Here is how it works:
 1. **command** (here g++ compiler) is run for every file matching **filePattern** (**/*.cpp).
 1. `(-I[$${includePath}])` and `(-D$${defines})` define sub-templates repeated for every **includePath** and **defines** value listed in corresponding configuration from **c_cpp_properties.json** file.
 1. `${fileName}`, `${filePath}` and `${fileDirectory}` are replaced by the name, path and relative directory of the file being processed.
-1. `${outputDirectory}` value is built as defined by **outputDirectory** template. Note that **outputDirectory** can be build using relative path of the file being processed. As a result, inside the output **build** folder directory structure will resemble the input directory structure. Required directory will be created if it does not exists.
+1. `${outputFile}` value is built as defined by **outputFile** template. Note that **outputFile** can be build using relative path of the file being processed. As a result, inside the output **build** folder directory structure will resemble the input directory structure. Required directory will be created if it does not exists.
 1. `${buildTypeParams}` is defined in **build type** section. For DEBUG build type `-O0 -g` switches will be added.
 1. Strings in `[]` are treated as paths and will be quoted if path contains whitespace. Path separators may be modified.
+1. Be default, if **outputFile** already exists and is more recent than processed input file build for this file will not be performed. As a result, only modified files will be built (incremental build).
 
 # Notes
 1. **filePattern**/**fileList** build step properties use [glob syntax](https://en.wikipedia.org/wiki/Glob_(programming)). Tool internally relies on [glob module](https://github.com/isaacs/node-glob) so more advanced file patterns and exclusions are supported.
@@ -56,6 +57,7 @@ In contrast, **fileList** only populates `$${fileDirectory}`, `$${filePath}` and
 1. Environment values (`${env:name}`) and standard variables **workspaceRoot**/**workspaceFolder** and **workspaceRootFolderName** can be used.
 1. **filePattern** and **outputDirectory** are not required. Command without **filePattern** will be executed just once.
 1. **build types** do not have to be defined - they are optional and they can define multiple additional variables. If specified, **buildTypeName** variable is added.
+1. If **outputDirectory** or **outputFile** are specified, the required directory will be created if it does not exist.
 1. **includePath** and **forcedInclude** multi-value variables defined in `c_cpp_properties.json` can contain [glob patterns](https://en.wikipedia.org/wiki/Glob_(programming)). Paths will be expanded.
 1. Variables can be defined globally, on configuration, task and build type level. Low level variables override higher levels variables. Command line provided variables have the highest priority.
 1. Variable values can contain other variables.
@@ -82,3 +84,8 @@ For example, multi-valued variables currently cannot be specified from command l
 Please do not hesitate to suggest fixes and improvements. Pull requests are more than welcome.
 
 Finally, if you find this tool useful, please give it a star. This way others will be able to find it more easily.
+
+# Release notes
+1.0 Initial release
+1.1 `params` can be added on all levels, tool can work without C/C++ extension and `c_cpp_properties.json` file.
+1.2 Added support for incremental builds and `outputFile` build step property.

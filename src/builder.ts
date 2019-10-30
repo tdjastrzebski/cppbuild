@@ -5,8 +5,8 @@
 
 'use strict';
 
-import { IStringDictionary, checkFileExists, resolveVariables, ConfigurationJson, BuildStepsFileSchema, PropertiesFileSchema } from "./main";
-import { BuildConfigurations, BuildConfiguration, BuildType, CppParams, BuildStep } from "./interfaces";
+import { BuildStepsFileSchema, PropertiesFileSchema } from "./main";
+import { BuildConfigurations, BuildConfiguration, BuildType, CppParams, BuildStep, IStringDictionary } from "./interfaces";
 import { globAsync, getJsonObject, ExecCmdResult, execCmd, addToDictionary, getFileMTime, getFileStatus, resolveVariablesTwice } from "./utils";
 import { getCppConfigParams, validateJsonFile, createOutputDirectory, buildCommand } from "./processor";
 import { AsyncSemaphore } from "@esfx/async-semaphore";
@@ -15,12 +15,13 @@ import { hasMagic } from "glob";
 import * as path from 'path';
 import { deepClone } from "./vscode";
 import { FSWatcher } from "fs";
+import { checkFileExists, ConfigurationJson, resolveVariables } from "./cpptools";
 
 export class Builder {
 	// TODO: improve, it is kinda 'poor man's approach', use prex CancellationToken?
 	private _aborting: boolean = false;
 
-	async runBuild(workspaceRoot: string, propertiesPath: string | undefined, buildStepsPath: string, configName: string, buildTypeName: string, cliExtraParams: IStringDictionary<string | string[]>, maxTaskCount: number, logOutput: (text: string) => void, logError: (text: string) => void) {
+	async runBuild(workspaceRoot: string, propertiesPath: string | undefined, buildStepsPath: string, configName: string, buildTypeName: string, cliExtraParams: IStringDictionary<string | string[]>, maxTaskCount: number, forceRebuild: boolean, logOutput: (text: string) => void, logError: (text: string) => void) {
 		const workspaceRootFolderName = path.basename(workspaceRoot);
 		const extraParams: IStringDictionary<string | string[]> = { 'workspaceRoot': workspaceRoot, 'workspaceFolder': workspaceRoot, 'workspaceRootFolderName': workspaceRootFolderName, 'configName': configName };
 
@@ -130,7 +131,7 @@ export class Builder {
 			if (buildStep.fileList) buildStep.fileList = resolveVariables(buildStep.fileList, stepParams);
 
 			try {
-				await this.runBuildStep(workspaceRoot, buildStep, stepParams, maxTaskCount, logOutput, logError);
+				await this.runBuildStep(workspaceRoot, buildStep, stepParams, maxTaskCount, forceRebuild, logOutput, logError);
 			} catch (e) {
 				throw new Error(`An error occurred during '${buildStep.name}' step - terminating.\n${e.message}`);
 			}
@@ -138,7 +139,7 @@ export class Builder {
 	}
 
 	// TODO: consider adding a flag to allow to continue on errors
-	async runBuildStep(workspaceRoot: string, buildStep: BuildStep, extraParams: IStringDictionary<string | string[]>, maxTaskCount: number, logOutput: (text: string) => void, logError: (text: string) => void) {
+	async runBuildStep(workspaceRoot: string, buildStep: BuildStep, extraParams: IStringDictionary<string | string[]>, maxTaskCount: number, forceRebuild: boolean, logOutput: (text: string) => void, logError: (text: string) => void) {
 		if (buildStep.filePattern) {
 			// run command for each file
 			const filePaths: string[] = await globAsync(buildStep.filePattern, { cwd: workspaceRoot });
@@ -172,7 +173,7 @@ export class Builder {
 						let fullOutputFilePath = outputFilePath;
 						if (!path.isAbsolute(fullOutputFilePath)) fullOutputFilePath = path.join(workspaceRoot, outputFilePath);
 
-						if (await checkFileExists(fullOutputFilePath) === true) {
+						if (!forceRebuild && await checkFileExists(fullOutputFilePath) === true) {
 							const outputFileStats = await getFileStatus(fullOutputFilePath);
 							if (outputFileStats.mtime > inputFileDate) {
 								// input file has not been modified since output file modified - skip this file build
@@ -253,9 +254,7 @@ export class Builder {
 
 		for (const p of includePaths) {
 			let pattern = p.trim();
-
-			pattern = resolveVariables(pattern, extraParams);
-			pattern = resolveVariables(pattern, extraParams);
+			pattern = resolveVariablesTwice(pattern, extraParams);
 
 			if (pattern.endsWith('/*')) pattern = pattern.substr(0, pattern.length - 1);
 			if (pattern.endsWith('\\*')) pattern = pattern.substr(0, pattern.length - 2);

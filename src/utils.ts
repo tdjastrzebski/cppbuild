@@ -5,7 +5,13 @@ import * as fs from 'fs';
 import * as cp from 'child_process';
 import * as jsonc from 'jsonc-parser';
 import { SpawnAsyncResult, spawnAsync, SpawnAsyncError } from './spawnAsync';
-import { IStringDictionary, resolveVariables } from './main';
+import { IStringDictionary } from './interfaces';
+import { resolveVariables } from './cpptools';
+
+export async function getLatestVersion(name: string): Promise<string> {
+	const result = await execCmd(`npm show ${name} version`, {});
+	return result.stdout.split(/[\r\n]/).filter(line => !!line)[0];
+}
 
 export function resolveVariablesTwice(input: string, params: { [key: string]: string | string[] }): string {
 	let result: string = resolveVariables(input, params);

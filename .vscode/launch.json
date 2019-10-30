@@ -7,8 +7,8 @@
         {
             "type": "node",
             "request": "launch",
-            "name": "Launch CLI",
-            "program": "${workspaceFolder}/src/cli.ts",
+            "name": "Launch CppBuild",
+            "program": "${workspaceFolder}/src/cppbuild.ts",
             "preLaunchTask": "npm build",
             "outFiles": [
                 "${workspaceFolder}/out/**/*.js"

@@ -8,7 +8,7 @@
 import * as path from 'path';
 import { AsyncMutex } from "@esfx/async-mutex";
 import { Configuration, ConfigurationJson, resolveVariables, checkDirectoryExists, checkFileExists, isArrayOfString } from './cpptools';
-import { replaceAt, makeDirectory, getJsonObject, listObject } from './utils';
+import { replaceAt, makeDirectory, getJsonObject, listObject, resolveVariablesTwice } from './utils';
 import { CppParams, IStringDictionary, BuildConfigurations, BuildInfo } from './interfaces';
 import ajv from 'ajv';
 import { BuildStepsFileSchema, PropertiesFileSchema } from './main';
@@ -128,8 +128,7 @@ export function buildCommand(template: string, extraParams: IStringDictionary<st
 	});
 
 	// 4. resolve variable names: ${name}
-	command = resolveVariables(command, extraParams);
-	command = resolveVariables(command, extraParams);
+	command = resolveVariablesTwice(command, extraParams);
 
 	// 5. replace [path] with OS specific path separators and add quotes if path contains whitespace
 	command = command.replace(/\[.*?\]/g, (match) => {

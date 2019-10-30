@@ -13,6 +13,10 @@ import { IStringDictionary } from './interfaces';
 import { isNumber } from 'util';
 import { ToolName, ToolVersion, PropertiesFolder, BuildStepsFile, PropertiesFile, BuildStepsFileSchema, PropertiesFileSchema } from './main';
 import { Builder } from './builder';
+import * as semver from 'semver';
+import { isatty } from 'tty';
+import chalk from 'chalk';
+import { getLatestVersion } from './utils';
 
 let _workspaceRoot: string = process.cwd();
 let _propertiesFile: string | undefined = undefined;
@@ -20,7 +24,9 @@ let _buildFile: string;
 let _configName: string | undefined = undefined;
 let _buildTypeName: string | undefined = undefined;
 let _maxTask: number = 4;
-const _description = `Multi-step C/C++ Build Tool version ${ToolVersion}\nhttps://github.com/tdjastrzebski/cppbuild`;
+const _description = `Multi-step C/C++ incremental build tool version ${ToolVersion}\nhttps://github.com/tdjastrzebski/cppbuild`;
+let _latestVersion: string | undefined = undefined;
+let _forceRebuild: boolean = false;
 
 const program = new cmd.Command();
 program.name(ToolName)
@@ -33,6 +39,7 @@ program.name(ToolName)
 	.option('-p, --properties-file [file]', `name of the file containing C/C++ configurations (default: '${PropertiesFolder}/${PropertiesFile}')`)
 	.option('-v, --variable <name=value>', 'variable name and value - can be specified multiple times', parseVariables)
 	.option('-j, --max-tasks <number>', `maximum number of tasks run in parallel (default: ${_maxTask})`)
+	.option('-f, --force-rebuild', `disable incremental build`)
 	.action((config, build) => { _configName = config; _buildTypeName = build; });
 program.parse(process.argv);
 
@@ -68,6 +75,8 @@ if (program.propertiesFile === true) {
 	}
 }
 
+if (program.forceRebuild === true) _forceRebuild = true;
+
 console.log(_description);
 console.log();
 console.log('workspace root: ' + _workspaceRoot);
@@ -83,7 +92,7 @@ const builder = new Builder();
 	const start = process.hrtime();
 
 	try {
-		await builder.runBuild(_workspaceRoot, _propertiesFile, _buildFile, _configName!, _buildTypeName!, cliExtraParams, _maxTask, logBuildOutput, logBuildError);
+		await builder.runBuild(_workspaceRoot, _propertiesFile, _buildFile, _configName!, _buildTypeName!, cliExtraParams, _maxTask, _forceRebuild, logBuildOutput, logBuildError);
 	} catch (e) {
 		const error = e as Error;
 		if (error) console.error(error.message);
@@ -94,6 +103,18 @@ const builder = new Builder();
 	const end = process.hrtime(start);
 	const timeElapsed = end[0] + end[1] / 1000000000;
 	console.log(`Build steps completed in ${timeElapsed.toFixed(2)}s`);
+
+	if (isatty(1)) {
+		try {
+			_latestVersion = await getLatestVersion(ToolName);
+		} catch {
+			// ignore errors;
+		}
+	}
+
+	if (_latestVersion && semver.gt(_latestVersion, ToolVersion)) {
+		console.log(chalk.yellow(`\nThe latest version of ${ToolName} is ${_latestVersion} and you have ${ToolVersion}.\nUpdate it now: npm install -g ${ToolName}`));
+	}
 })();
 
 function logBuildOutput(line: string) {
