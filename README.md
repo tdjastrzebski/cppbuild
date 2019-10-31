@@ -86,6 +86,6 @@ Please do not hesitate to suggest fixes and improvements. Pull requests are more
 Finally, if you find this tool useful, please give it a star. This way others will be able to find it more easily.
 
 # Release notes
-1.0 Initial release
-1.1 `params` can be added on all levels, tool can work without C/C++ extension and `c_cpp_properties.json` file.
-1.2 Added support for incremental builds and `outputFile` build step property.
+* 1.0 Initial release
+* 1.1 `params` can be added on all levels, tool can work without C/C++ extension and `c_cpp_properties.json` file.
+* 1.2 Added support for incremental builds and `outputFile` build step property.
