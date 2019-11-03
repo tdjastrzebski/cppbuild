@@ -18,7 +18,7 @@ import chalk from 'chalk';
 import cmd from 'commander';
 import { isatty } from 'tty';
 
-const Description = chalk.blue(`Multi-step C/C++ incremental build tool version ${ToolVersion}\nhttps://github.com/tdjastrzebski/cppbuild`);
+const Description = chalk.greenBright(`Multi-step C/C++ incremental build tool version ${ToolVersion}\nhttps://github.com/tdjastrzebski/cppbuild`);
 const ProcessCwd: string = process.cwd();
 const Program = new cmd.Command();
 
