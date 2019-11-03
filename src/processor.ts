@@ -5,13 +5,13 @@
 
 'use strict';
 
-import * as path from 'path';
-import { AsyncMutex } from "@esfx/async-mutex";
 import { Configuration, ConfigurationJson, resolveVariables, checkDirectoryExists, checkFileExists, isArrayOfString } from './cpptools';
 import { replaceAt, makeDirectory, getJsonObject, listObject, resolveVariablesTwice } from './utils';
 import { CppParams, IStringDictionary, BuildConfigurations, BuildInfo } from './interfaces';
+import { BuildStepsFileSchema, PropertiesFileSchema } from './consts';
+import * as path from 'path';
+import { AsyncMutex } from "@esfx/async-mutex";
 import ajv from 'ajv';
-import { BuildStepsFileSchema, PropertiesFileSchema } from './main';
 
 export function getCppConfigParams(configurationJson: ConfigurationJson, configName: string): CppParams | undefined {
 	const configuration: Configuration | undefined = configurationJson!.configurations.filter((c) => c.name == configName)[0];

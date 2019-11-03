@@ -41,7 +41,7 @@ export function getJsonObject<T>(jsonPath: string): T | undefined {
 	return newJson;
 }
 
-export function makeDirectory(dirPath: string, options: fs.MakeDirectoryOptions): Promise<void> {
+export function makeDirectory(dirPath: string, options: fs.MakeDirectoryOptions = { recursive: true }): Promise<void> {
 	return new Promise((resolve, reject) => {
 		fs.mkdir(dirPath, options, err => {
 			if (err) {

@@ -5,17 +5,17 @@
 
 'use strict';
 
-import { BuildStepsFileSchema, PropertiesFileSchema } from "./main";
+import { BuildStepsFileSchema, PropertiesFileSchema } from "./consts";
 import { BuildConfigurations, BuildConfiguration, BuildType, CppParams, BuildStep, IStringDictionary } from "./interfaces";
 import { globAsync, getJsonObject, ExecCmdResult, execCmd, addToDictionary, getFileMTime, getFileStatus, resolveVariablesTwice } from "./utils";
 import { getCppConfigParams, validateJsonFile, createOutputDirectory, buildCommand } from "./processor";
+import { checkFileExists, ConfigurationJson, resolveVariables } from "./cpptools";
 import { AsyncSemaphore } from "@esfx/async-semaphore";
 import { AsyncMutex } from "@esfx/async-mutex";
 import { hasMagic } from "glob";
-import * as path from 'path';
 import { deepClone } from "./vscode";
+import * as path from 'path';
 import { FSWatcher } from "fs";
-import { checkFileExists, ConfigurationJson, resolveVariables } from "./cpptools";
 
 export class Builder {
 	// TODO: improve, it is kinda 'poor man's approach', use prex CancellationToken?

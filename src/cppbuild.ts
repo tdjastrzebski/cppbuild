@@ -7,77 +7,93 @@
 
 'use strict';
 
-import * as path from 'path';
-import cmd from 'commander';
 import { IStringDictionary } from './interfaces';
+import { getLatestVersion } from './utils';
+import { ToolName, ToolVersion, VscodeFolder, BuildStepsFile, PropertiesFile, BuildStepsFileSchema, PropertiesFileSchema } from './consts';
 import { isNumber } from 'util';
-import { ToolName, ToolVersion, PropertiesFolder, BuildStepsFile, PropertiesFile, BuildStepsFileSchema, PropertiesFileSchema } from './main';
 import { Builder } from './builder';
 import * as semver from 'semver';
-import { isatty } from 'tty';
+import * as path from 'path';
 import chalk from 'chalk';
-import { getLatestVersion } from './utils';
+import cmd from 'commander';
+import { isatty } from 'tty';
 
-let _workspaceRoot: string = process.cwd();
-let _propertiesFile: string | undefined = undefined;
-let _buildFile: string;
-let _configName: string | undefined = undefined;
-let _buildTypeName: string | undefined = undefined;
+const Description = `Multi-step C/C++ incremental build tool version ${ToolVersion}\nhttps://github.com/tdjastrzebski/cppbuild`;
+const ProcessCwd: string = process.cwd();
+const Program = new cmd.Command();
+
+let _workspaceRoot: string;
+let _buildFile: string | undefined;
+let _propertiesFile: string | undefined;
+let _configName: string | undefined;
+let _buildTypeName: string | undefined;
 let _maxTask: number = 4;
-const _description = `Multi-step C/C++ incremental build tool version ${ToolVersion}\nhttps://github.com/tdjastrzebski/cppbuild`;
-let _latestVersion: string | undefined = undefined;
+let _latestVersion: string | undefined;
 let _forceRebuild: boolean = false;
 
-const program = new cmd.Command();
-program.name(ToolName)
+Program.name(ToolName)
 	.version(ToolVersion, '--version', 'output the current version')
-	.description(_description)
+	.description(Description)
 	.usage(`<configuration name> [build type] [options]`)
 	.arguments('<configuration name> [build type]')
-	.option('-w, --workspace-root <path>', 'workspace root path (default: the current folder)')
-	.option('-b, --build-file <file>', `name of the file containing build steps definitions (default: '${PropertiesFolder}/${BuildStepsFile}')`)
-	.option('-p, --properties-file [file]', `name of the file containing C/C++ configurations (default: '${PropertiesFolder}/${PropertiesFile}')`)
+	.option('-w, --workspace-root [path]', 'VS Code workspace root path (default: the current folder)')
+	.option('-b, --build-file <file>', `name of the file containing build steps definitions (default: '${VscodeFolder}/${BuildStepsFile}')`)
+	.option('-p, --properties-file [file]', `name of the file containing C/C++ configurations (default: '${VscodeFolder}/${PropertiesFile}')`)
 	.option('-v, --variable <name=value>', 'variable name and value - can be specified multiple times', parseVariables)
 	.option('-j, --max-tasks <number>', `maximum number of tasks run in parallel (default: ${_maxTask})`)
 	.option('-f, --force-rebuild', `disable incremental build`)
 	.action((config, build) => { _configName = config; _buildTypeName = build; });
-program.parse(process.argv);
+Program.parse(process.argv);
 
-if (program.workspaceRoot) _workspaceRoot = program.workspaceRoot;
-_propertiesFile = path.join(_workspaceRoot, PropertiesFolder, PropertiesFile);
-_buildFile = path.join(_workspaceRoot, PropertiesFolder, BuildStepsFile);
+if (Program.workspaceRoot) {
+	if (Program.workspaceRoot === true) {
+		_workspaceRoot = ProcessCwd;
+	} else {
+		_workspaceRoot = Program.workspaceRoot;
+	}
+	_propertiesFile = path.join(_workspaceRoot, VscodeFolder, PropertiesFile);
+	_buildFile = path.join(_workspaceRoot, VscodeFolder, BuildStepsFile);
+} else {
+	_workspaceRoot = ProcessCwd;
+}
 
-if (program.maxTasks) {
-	if (isNumber(program.maxTasks)) {
-		_maxTask = program.maxTasks;
+if (Program.propertiesFile) {
+	if (Program.propertiesFile === true) {
+		_propertiesFile = undefined;
+	} else {
+		if (path.isAbsolute(Program.configurationsFile)) {
+			_propertiesFile = Program.configurationsFile;
+		} else {
+			_propertiesFile = path.join(ProcessCwd, Program.configurationsFile);
+		}
+	}
+}
+
+if (Program.buildFile) {
+	if (path.isAbsolute(Program.buildFile)) {
+		_buildFile = Program.buildFile;
+	} else {
+		_buildFile = path.join(ProcessCwd, Program.buildFile);
+	}
+}
+
+if (!_buildFile) {
+	_buildFile = path.join(ProcessCwd, BuildStepsFile);
+}
+
+if (Program.maxTasks) {
+	if (isNumber(Program.maxTasks)) {
+		_maxTask = Program.maxTasks;
 	} else {
 		console.error(`Invalid maximum number of concurrent tasks - option ignored.`);
 	}
 }
 
-const cliExtraParams = program.variable as IStringDictionary<string>;
+if (Program.forceRebuild === true) _forceRebuild = true;
 
-if (program.buildFile) {
-	if (path.isAbsolute(program.buildFile)) {
-		_buildFile = program.buildFile;
-	} else {
-		_buildFile = path.join(_workspaceRoot, program.buildFile);
-	}
-}
+const cliExtraParams = Program.variable as IStringDictionary<string>;
 
-if (program.propertiesFile === true) {
-	_propertiesFile = undefined;
-} else if (program.propertiesFile) {
-	if (path.isAbsolute(program.configurationsFile)) {
-		_propertiesFile = program.configurationsFile;
-	} else {
-		_propertiesFile = path.join(_workspaceRoot, program.configurationsFile);
-	}
-}
-
-if (program.forceRebuild === true) _forceRebuild = true;
-
-console.log(_description);
+console.log(Description);
 console.log();
 console.log('workspace root: ' + _workspaceRoot);
 console.log('build steps file: ' + _buildFile);
@@ -103,7 +119,6 @@ const builder = new Builder();
 	const end = process.hrtime(start);
 	const timeElapsed = end[0] + end[1] / 1000000000;
 	console.log(`Build steps completed in ${timeElapsed.toFixed(2)}s`);
-
 	if (isatty(1)) {
 		try {
 			_latestVersion = await getLatestVersion(ToolName);

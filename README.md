@@ -1,6 +1,7 @@
 # What is it?
 **CppBuild** is a multi-step incremental build command line tool based on JSON, string templates and [glob syntax](https://en.wikipedia.org/wiki/Glob_(programming)).  
-**CppBuild** has originally been designed to work together with the popular [vscode-cpptools](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools) extension and uses its variables combined with its own build steps but it can be used without [vscode-cpptools](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools) as well and is not limited to C/C++ builds.
+**CppBuild** has originally been designed to work together with the popular [vscode-cpptools](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools) extension and uses its variables combined with its own build steps.  
+Since version 1.2.0 **CppBuild** can be used without [vscode-cpptools](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools) and is not limited to C/C++ builds.
 
 # Why?
 While working on C/C++ for embedded devices in VS Code I wanted to simplify multi-step build process configuration and maintenance. Also, I wanted to eliminate duplication of the settings (**include paths** and **defines**) between `c_cpp_properties.json` and widely used MAKE/CMake files. Although these tools are industry standard, I am not a big fan of them. All that led me to the development of a completely new build tool.  
@@ -16,9 +17,14 @@ Additional variables may be supplied on all levels and as command line arguments
 
 # How to use it?
 Install: `npm install cppbuild -g`  
-and run: `cppbuild <config name> [build type]`  
 
-The only required argument is **config name** - one of the configurations defined in `c_cpp_build.json` file. **Build type** name can be supplied optionally.
+* From VS Code folder run: `cppbuild <config name> [build type] -w [workspace root]`  
+**cppbuild** will use `c_cpp_build.json` and `c_cpp_properties.json` files from `.vscode` folder in current or specified workspace root.
+
+* Otherwise run: `cppbuild <config name> [build type] [-b <JSON build file>]`  
+By default, **cppbuild** will use `c_cpp_build.json` file from local folder or any other file specified.
+
+The only required argument is **config name** - one of the configurations defined in build file. **Build type** name can be supplied optionally.
 
 For more options run: `cppbuild --help`
 
@@ -46,7 +52,7 @@ Here is how it works:
 1. `${outputFile}` value is built as defined by **outputFile** template. Note that **outputFile** can be build using relative path of the file being processed. As a result, inside the output **build** folder directory structure will resemble the input directory structure. Required directory will be created if it does not exists.
 1. `${buildTypeParams}` is defined in **build type** section. For DEBUG build type `-O0 -g` switches will be added.
 1. Strings in `[]` are treated as paths and will be quoted if path contains whitespace. Path separators may be modified.
-1. Be default, if **outputFile** already exists and is more recent than processed input file build for this file will not be performed. As a result, only modified files will be built (incremental build).
+1. Be default, if **outputFile** already exists and is more recent than the processed input file, build for this file will not be performed. As a result, only modified files will be built (incremental build).
 
 # Notes
 1. **filePattern**/**fileList** build step properties use [glob syntax](https://en.wikipedia.org/wiki/Glob_(programming)). Tool internally relies on [glob module](https://github.com/isaacs/node-glob) so more advanced file patterns and exclusions are supported.

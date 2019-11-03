@@ -10,15 +10,6 @@ import { getBuildInfos, validateJsonFile } from './processor';
 import { getJsonObject } from './utils';
 import ajv from 'ajv';
 
-const pkg = require('../package.json');
-
-export const ToolVersion: string = pkg.version;
-export const ToolName: string = pkg.name;
-export const PropertiesFolder: string = '.vscode';
-export const PropertiesFile: string = 'c_cpp_properties.json';
-export const BuildStepsFile: string = 'c_cpp_build.json';
-export const BuildStepsFileSchema: string = 'c_cpp_build.schema.json';
-export const PropertiesFileSchema: string = 'c_cpp_properties.schema.json';
 
 /* test only
 let errors = validateJsonFile('c_cpp_build.json', BuildStepsFileSchema);
