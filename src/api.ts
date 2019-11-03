@@ -10,4 +10,4 @@ export { resolveVariables, checkFileExists, checkDirectoryExists, readDirectory,
 export { getJsonObject, execCmd, ExecCmdResult, spawnCommand, makeDirectory } from "./utils";
 export { getBuildInfos } from "./processor";
 export { Builder } from "./builder";
-export { ToolVersion, ToolName, VscodeFolder as PropertiesFolder, PropertiesFile, BuildStepsFile, BuildStepsFileSchema, PropertiesFileSchema } from './consts';
+export { ToolVersion, ToolName, VscodeFolder, PropertiesFile, BuildStepsFile, BuildStepsFileSchema, PropertiesFileSchema } from './consts';
