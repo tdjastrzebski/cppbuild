@@ -18,7 +18,7 @@ import chalk from 'chalk';
 import cmd from 'commander';
 import { isatty } from 'tty';
 
-const Description = `Multi-step C/C++ incremental build tool version ${ToolVersion}\nhttps://github.com/tdjastrzebski/cppbuild`;
+const Description = chalk.blue(`Multi-step C/C++ incremental build tool version ${ToolVersion}\nhttps://github.com/tdjastrzebski/cppbuild`);
 const ProcessCwd: string = process.cwd();
 const Program = new cmd.Command();
 
@@ -124,7 +124,7 @@ const builder = new Builder();
 
 async function newVersionInfo() {
 	let latestVersion: string | undefined;
-	
+
 	if (isatty(1)) {
 		try {
 			latestVersion = await getLatestVersion(ToolName);
