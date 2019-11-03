@@ -28,7 +28,6 @@ let _propertiesFile: string | undefined;
 let _configName: string | undefined;
 let _buildTypeName: string | undefined;
 let _maxTask: number = 4;
-let _latestVersion: string | undefined;
 let _forceRebuild: boolean = false;
 
 Program.name(ToolName)
@@ -112,6 +111,7 @@ const builder = new Builder();
 	} catch (e) {
 		const error = e as Error;
 		if (error) console.error(error.message);
+		await newVersionInfo();
 		process.exit(1);
 		return;
 	}
@@ -119,18 +119,24 @@ const builder = new Builder();
 	const end = process.hrtime(start);
 	const timeElapsed = end[0] + end[1] / 1000000000;
 	console.log(`Build steps completed in ${timeElapsed.toFixed(2)}s`);
+	await newVersionInfo();
+})();
+
+async function newVersionInfo() {
+	let latestVersion: string | undefined;
+	
 	if (isatty(1)) {
 		try {
-			_latestVersion = await getLatestVersion(ToolName);
+			latestVersion = await getLatestVersion(ToolName);
 		} catch {
 			// ignore errors;
 		}
 	}
 
-	if (_latestVersion && semver.gt(_latestVersion, ToolVersion)) {
-		console.log(chalk.yellow(`\nThe latest version of ${ToolName} is ${_latestVersion} and you have ${ToolVersion}.\nUpdate it now: npm install -g ${ToolName}`));
+	if (latestVersion && semver.gt(latestVersion, ToolVersion)) {
+		console.log(chalk.yellow(`\nThe latest version of ${ToolName} is ${latestVersion} and you have ${ToolVersion}.\nUpdate it now: npm install -g ${ToolName}`));
 	}
-})();
+}
 
 function logBuildOutput(line: string) {
 	console.log(line);
