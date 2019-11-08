@@ -9,7 +9,7 @@ Since [ms-vscode.cpptools](https://marketplace.visualstudio.com/items?itemName=m
 Initially **CppBuild** had to use [vscode-cpptools](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools) `c_cpp_properties.json` file. This dependency has been eliminated since version 1.1.0 and now **CppBuild** can be used to run any other builds.
 
 # What does it do?
-The way **CppBuild** works is very simple. The tool executes build steps, by default defined in `c_cpp_build.json` file. Each build step defines `command` to be executed. `command` is actually a string template where both single and multi-value ($$) variables like `${fileName}`, `${outputDirectory}` or `$${defines}` can be used. If `filePattern` is specified as well the `command` will be executed for every file matching the pattern. In addition, a build step can define one or more **build types** like `debug` or `release`. Build types simply define additional variables, typically compiler options, to be added or replaced.
+The way **CppBuild** works is very simple. The tool executes build steps, by default defined in `c_cpp_build.json` file. Each build step defines `command` to be executed. `command` is actually a string template where both single and multi-value ($$) variables like `${fileName}`, `${outputDirectory}` or `$${defines}` can be used. If `filePattern` is specified as well the `command` will be executed for every file matching the pattern. In addition, a build step can define one or more **build types** like `debug` or `release`. Build types simply define additional variables, typically compiler options, to be added or changed.
 
 When **CppBuild** is used with [vscode-cpptools](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools), **includePath**, **defines** and **forcedInclude** multi-value variables defined in `c_cpp_properties.json` config file can be used in build step `command`. For this to happen, the corresponding configurations, which have the same name, must be present in both `c_cpp_build.json` and `c_cpp_properties.json` files.
 
@@ -48,7 +48,7 @@ Sample build type:
 Here is how it works:
 1. **command** (here g++ compiler) is run for every file matching **filePattern** (**/*.cpp).
 1. `(-I[$${includePath}])` and `(-D$${defines})` define sub-templates repeated for every **includePath** and **defines** value listed in corresponding configuration from **c_cpp_properties.json** file.
-1. `${fileName}`, `${filePath}` and `${fileDirectory}` are replaced by the name, path and relative directory of the file being processed.
+1. `${fileName}`, `${filePath}` and `${fileDirectory}` are substituted by the name, path and relative directory of the file being processed.
 1. `${outputFile}` value is built as defined by **outputFile** template. Note that **outputFile** can be build using relative path of the file being processed. As a result, inside the output **build** folder directory structure will resemble the input directory structure. Required directory will be created if it does not exists.
 1. `${buildTypeParams}` is defined in **build type** section. For DEBUG build type `-O0 -g` switches will be added.
 1. Strings in `[]` are treated as paths and will be quoted if path contains whitespace. Path separators may be modified.

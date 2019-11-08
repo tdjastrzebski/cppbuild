@@ -15,7 +15,7 @@ import { AsyncMutex } from "@esfx/async-mutex";
 import { hasMagic } from "glob";
 import { deepClone } from "./vscode";
 import * as path from 'path';
-import { FSWatcher } from "fs";
+import { cyanBright } from 'colorette';
 
 export class Builder {
 	// TODO: improve, it is kinda 'poor man's approach', use prex CancellationToken?
@@ -155,7 +155,7 @@ export class Builder {
 					if (false === await checkFileExists(fullInputFilePath)) return;
 					const params = deepClone(extraParams);
 					// run for each file
-					const actionName: string = buildStep.name + ': ' + filePath;
+					const actionName: string = cyanBright(buildStep.name + ': ' + filePath);
 					const fileDirectory: string = path.dirname(filePath);
 					const fileExtension: string = path.extname(filePath);
 					const fullFileName: string = path.basename(filePath);
@@ -243,7 +243,8 @@ export class Builder {
 			}
 
 			let command: string = buildCommand(buildStep.command, extraParams);
-			const result = await this.execCommand(command, workspaceRoot, buildStep.name, logOutput, logError);
+			const actionName = cyanBright(buildStep.name);
+			const result = await this.execCommand(command, workspaceRoot, actionName, logOutput, logError);
 			if (result && result.error) throw result.error;
 		}
 	}

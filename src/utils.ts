@@ -7,9 +7,27 @@ import * as jsonc from 'jsonc-parser';
 import { SpawnAsyncResult, spawnAsync, SpawnAsyncError } from './spawnAsync';
 import { IStringDictionary } from './interfaces';
 import { resolveVariables } from './cpptools';
+import { CancelToken, CancelSubscription, CancelError } from "@esfx/async-canceltoken";
 
-export async function getLatestVersion(name: string): Promise<string> {
-	const result = await execCmd(`npm show ${name} version`, {});
+export function sleep(millis: number, token = CancelToken.none): Promise<void> {
+	return new Promise((resolve, reject) => {
+		let subscription: CancelSubscription | null = null;
+		if (token.signaled) resolve();
+
+		const timeout = setTimeout(() => {
+			if (subscription) subscription.unsubscribe();
+			resolve();
+		}, millis);
+
+		subscription = token.subscribe(() => {
+			clearTimeout(timeout);
+			resolve();
+		});
+	});
+}
+
+export async function getLatestVersion(name: string, token = CancelToken.none): Promise<string> {
+	const result = await execCmd(`npm show ${name} version`, {}, token);
 	return result.stdout.split(/[\r\n]/).filter(line => !!line)[0];
 }
 
@@ -46,8 +64,7 @@ export function makeDirectory(dirPath: string, options: fs.MakeDirectoryOptions 
 		fs.mkdir(dirPath, options, err => {
 			if (err) {
 				reject(err);
-			}
-			else {
+			} else {
 				resolve();
 			}
 		});
@@ -100,14 +117,24 @@ export interface ExecCmdResult {
 	error?: cp.ExecException;
 }
 
-export function execCmd(command: string, options: cp.ExecOptions): Promise<ExecCmdResult> {
+export function execCmd(command: string, options: cp.ExecOptions, token = CancelToken.none): Promise<ExecCmdResult> {
 	return new Promise<ExecCmdResult>((resolve, reject) => {
+		let subscription: CancelSubscription | null = null;
+		//token.throwIfSignaled(); // CancelError
+		if (token.signaled) reject(); // already signaled
+
 		const proc: cp.ChildProcess = cp.exec(command, options, (error, stdout, stderr) => {
+			if (subscription) subscription.unsubscribe();
 			if (error) {
 				reject({ stdout, stderr, error });
 			} else {
 				resolve({ stdout, stderr });
 			}
+		});
+
+		subscription = token.subscribe(() => {
+			proc.kill();
+			reject(); // TODO: throw CancelError ?
 		});
 	});
 }
