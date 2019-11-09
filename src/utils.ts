@@ -9,8 +9,14 @@ import { IStringDictionary } from './interfaces';
 import { resolveVariables } from './cpptools';
 import { CancelToken, CancelSubscription, CancelError } from "@esfx/async-canceltoken";
 
+export function elapsedMills(timeSince: [number, number]) {
+	const end = process.hrtime(timeSince);
+	const elapsed = (end[0] * 1000) + (end[1] / 1000000);
+	return elapsed;
+}
+
 export function sleep(millis: number, token = CancelToken.none): Promise<void> {
-	return new Promise((resolve, reject) => {
+	return new Promise((resolve) => {
 		let subscription: CancelSubscription | null = null;
 		if (token.signaled) resolve();
 

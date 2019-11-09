@@ -8,7 +8,7 @@
 'use strict';
 
 import { IStringDictionary } from './interfaces';
-import { getLatestVersion, sleep } from './utils';
+import { getLatestVersion, sleep, elapsedMills } from './utils';
 import { ToolName, ToolVersion, VscodeFolder, BuildStepsFile, PropertiesFile } from './consts';
 import { isNumber } from 'util';
 import { Builder } from './builder';
@@ -35,16 +35,13 @@ Program.name(ToolName)
 	.option('-v, --variable <name=value>', 'variable name and value - can be specified multiple times', parseVariables)
 	.option('-j, --max-tasks <number>', `maximum number of tasks run in parallel (default: ${DefaultMaxTask})`)
 	.option('-f, --force-rebuild', `disable incremental build`)
-	//.action((configName, buildTypeName) => doTask(build(Program, configName, buildTypeName)));
-	//.action(withErrors(myCommand));
 	.action(doTask(build));
-//.action(async (configName, buildTypeName) => myCommand(Program, configName, buildTypeName));
-
-Program.parse(process.argv);
 
 if (process.argv.length <= 2) {
 	// no arguments passed
 	Program.help();
+} else {
+	Program.parse(process.argv);
 }
 
 function trace(message: string) {
@@ -62,9 +59,11 @@ function doTask(task: (...args: any) => Promise<void>) {
 
 		if (isatty(1)) {
 			// inquiry version right away
+			const startGet = process.hrtime();
 			getLatestVersion(ToolName, getLatest.token).then(version => {
 				latestVersion = version;
-				trace('latest obtained: ' + latestVersion);
+				const elapsed = elapsedMills(startGet);
+				trace(`latest obtained: ${latestVersion} in ${elapsed / 1000}s`);
 			}).catch(reason => {
 				trace('error getting latest');
 				latestVersion = '';
@@ -85,8 +84,7 @@ function doTask(task: (...args: any) => Promise<void>) {
 			const error = e as Error;
 			if (error) console.error(redBright(error.message));
 		} finally {
-			const end = process.hrtime(start);
-			const elapsed = end[0] + end[1] / 1000000;
+			const elapsed = elapsedMills(start);
 			trace('finally ' + elapsed);
 
 			if (latestVersion === undefined && elapsed < GetLatestTimeout) {
@@ -175,8 +173,7 @@ async function build(configName: string | undefined, buildTypeName: string | und
 	const builder = new Builder();
 	const start = process.hrtime();
 	await builder.runBuild(workspaceRoot, propertiesFile, buildFile, configName!, buildTypeName!, cliExtraParams, maxTask, forceRebuild, logBuildOutput, logBuildError);
-	const end = process.hrtime(start);
-	const timeElapsed = end[0] + end[1] / 1000000000;
+	const timeElapsed = elapsedMills(start) / 1000;
 	console.log(cyanBright(`Build steps completed in ${timeElapsed.toFixed(2)}s`));
 }
 

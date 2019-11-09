@@ -7,7 +7,7 @@
 
 import { BuildStepsFileSchema, PropertiesFileSchema } from "./consts";
 import { BuildConfigurations, BuildConfiguration, BuildType, CppParams, BuildStep, IStringDictionary } from "./interfaces";
-import { globAsync, getJsonObject, ExecCmdResult, execCmd, addToDictionary, getFileMTime, getFileStatus, resolveVariablesTwice } from "./utils";
+import { globAsync, getJsonObject, ExecCmdResult, execCmd, addToDictionary, getFileMTime, getFileStatus, resolveVariablesTwice, elapsedMills } from "./utils";
 import { getCppConfigParams, validateJsonFile, createOutputDirectory, buildCommand } from "./processor";
 import { checkFileExists, ConfigurationJson, resolveVariables } from "./cpptools";
 import { AsyncSemaphore } from "@esfx/async-semaphore";
@@ -127,32 +127,58 @@ export class Builder {
 			if (buildStep.filePattern && buildStep.fileList) {
 				throw new Error(`Build step '${buildStep.name}' has both filePattern and fileList variables defined.`);
 			}
-			if (buildStep.filePattern) buildStep.filePattern = resolveVariables(buildStep.filePattern, stepParams);
-			if (buildStep.fileList) buildStep.fileList = resolveVariables(buildStep.fileList, stepParams);
+			if (buildStep.filePattern) buildStep.filePattern = resolveVariablesTwice(buildStep.filePattern, stepParams);
+			if (buildStep.fileList) buildStep.fileList = resolveVariablesTwice(buildStep.fileList, stepParams);
 
 			try {
-				await this.runBuildStep(workspaceRoot, buildStep, stepParams, maxTaskCount, forceRebuild, logOutput, logError);
+				const start = process.hrtime();
+				const fileCount = await this.runBuildStep(workspaceRoot, buildStep, stepParams, maxTaskCount, forceRebuild, logOutput, logError);
+				if (fileCount < 0) {
+					// do nothing
+				} else if (fileCount == 0) {
+					logOutput(cyanBright(`${buildStep.name}: nothing to do`));
+				} else {
+					const elapsed = elapsedMills(start)/1000;
+					logOutput(cyanBright(`${buildStep.name}: ${fileCount} file(s) processed in ${elapsed.toFixed(2)}s`));
+				}
 			} catch (e) {
 				throw new Error(`An error occurred during '${buildStep.name}' step - terminating.\n${e.message}`);
 			}
 		}
 	}
 
+	// TODO: consider async file existence check
+	async getVerifiedFilePaths(workspaceRoot: string, pattern: string): Promise<string[]> {
+		const filePaths: string[] = await globAsync(pattern, { cwd: workspaceRoot });
+		const verifiedFilePaths: string[] = [];
+
+		const tasks: Promise<void>[] = filePaths.map(async (filePath) => {
+			const fullInputFilePath = path.join(workspaceRoot, filePath);
+			if (false === await checkFileExists(fullInputFilePath)) {
+				return;
+			} else {
+				verifiedFilePaths.push(filePath);
+			}
+		});
+		
+		await Promise.all(tasks);
+		return verifiedFilePaths;
+	}
+
 	// TODO: consider adding a flag to allow to continue on errors
-	async runBuildStep(workspaceRoot: string, buildStep: BuildStep, extraParams: IStringDictionary<string | string[]>, maxTaskCount: number, forceRebuild: boolean, logOutput: (text: string) => void, logError: (text: string) => void) {
+	async runBuildStep(workspaceRoot: string, buildStep: BuildStep, extraParams: IStringDictionary<string | string[]>, maxTaskCount: number, forceRebuild: boolean, logOutput: (text: string) => void, logError: (text: string) => void): Promise<number> {
 		if (buildStep.filePattern) {
 			// run command for each file
-			const filePaths: string[] = await globAsync(buildStep.filePattern, { cwd: workspaceRoot });
-			// TODO: first create list of existing files
-			// TODO: implement better throttling - the problem with Semaphore approach is thread is started and then awaited
+			const filePaths = await this.getVerifiedFilePaths(workspaceRoot, buildStep.filePattern);
 			const semaphore: AsyncSemaphore = new AsyncSemaphore(maxTaskCount);
+			let filesProcessedCount = 0;
 
 			const tasks: Promise<void>[] = filePaths.map(async (filePath) => {
 				if (this._aborting) return; // TODO: use @esfx/async-canceltoken
 				await semaphore.wait();
+				
 				try {
 					const fullInputFilePath = path.join(workspaceRoot, filePath);
-					if (false === await checkFileExists(fullInputFilePath)) return;
 					const params = deepClone(extraParams);
 					// run for each file
 					const actionName: string = cyanBright(buildStep.name + ': ' + filePath);
@@ -194,6 +220,7 @@ export class Builder {
 
 					let command: string = buildCommand(buildStep.command, params);
 					const result = await this.execCommand(command, workspaceRoot, actionName, logOutput, logError);
+					filesProcessedCount ++;
 					if (result && result.error) throw result.error;
 				} catch (e) {
 					this._aborting = true;
@@ -205,6 +232,7 @@ export class Builder {
 
 			try {
 				await Promise.all(tasks);
+				return filesProcessedCount;
 			} catch (e) {
 				this._aborting = true;
 				throw e;
@@ -213,7 +241,7 @@ export class Builder {
 			extraParams = deepClone(extraParams);
 
 			if (buildStep.fileList) {
-				const filePaths: string[] = await globAsync(buildStep.fileList, { cwd: workspaceRoot });
+				const filePaths = await this.getVerifiedFilePaths(workspaceRoot, buildStep.fileList);
 				const fileDirectories: string[] = [];
 				const fileNames: string[] = [];
 				const fullFileNames: string[] = [];
@@ -245,7 +273,12 @@ export class Builder {
 			let command: string = buildCommand(buildStep.command, extraParams);
 			const actionName = cyanBright(buildStep.name);
 			const result = await this.execCommand(command, workspaceRoot, actionName, logOutput, logError);
-			if (result && result.error) throw result.error;
+			
+			if (result && result.error) {
+				throw result.error;
+			} else {
+				return -1;
+			}
 		}
 	}
 
