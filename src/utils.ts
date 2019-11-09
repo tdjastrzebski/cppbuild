@@ -1,6 +1,7 @@
 'use strict';
 
 import glob from 'glob';
+import chalk from 'chalk';
 import * as fs from 'fs';
 import * as cp from 'child_process';
 import * as jsonc from 'jsonc-parser';
@@ -8,6 +9,45 @@ import { SpawnAsyncResult, spawnAsync, SpawnAsyncError } from './spawnAsync';
 import { IStringDictionary } from './interfaces';
 import { resolveVariables } from './cpptools';
 import { CancelToken, CancelSubscription, CancelError } from "@esfx/async-canceltoken";
+
+export function head(text: string) {
+	return chalk.rgb(86, 156, 214)(text);
+}
+
+export function info(text: string) {
+	return chalk.rgb(78, 201, 176)(text);
+}
+
+export function warn(text: string) {
+	return chalk.rgb(220, 220, 170)(text);
+}
+
+export function err(text: string): string {
+	return chalk.rgb(224, 135, 113)(text);
+}
+
+export function reg(text: string): string {
+	return chalk.rgb(204, 204, 204)(text);
+}
+
+export function high(text: string): string {
+	return chalk.rgb(181, 206, 169)(text);
+}
+
+export function testColors() {
+	console.log(chalk.rgb(224, 135, 113)('test 1'));
+	console.log(chalk.rgb(205, 151, 49)('test 2'));
+	console.log(chalk.rgb(220, 220, 170)('test 3'));
+	console.log(chalk.rgb(206, 145, 120)('test 4'));
+	console.log(chalk.rgb(156, 220, 254)('test 5'));
+	console.log(chalk.rgb(78, 201, 176)('test 6'));
+	console.log(chalk.rgb(197, 134, 192)('test 7'));
+	console.log(chalk.rgb(204, 204, 204)('test 8'));
+	console.log(chalk.rgb(224, 224, 224)('test 9'));
+	console.log(chalk.rgb(86, 156, 214)('test 10'));
+	console.log(chalk.rgb(114, 157, 179)('test 11'));
+	console.log(chalk.rgb(181, 206, 169)('test 12'));
+}
 
 export function elapsedMills(timeSince: [number, number]) {
 	const end = process.hrtime(timeSince);

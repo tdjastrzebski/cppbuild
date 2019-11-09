@@ -7,7 +7,7 @@
 
 import { BuildStepsFileSchema, PropertiesFileSchema } from "./consts";
 import { BuildConfigurations, BuildConfiguration, BuildType, CppParams, BuildStep, IStringDictionary } from "./interfaces";
-import { globAsync, getJsonObject, ExecCmdResult, execCmd, addToDictionary, getFileMTime, getFileStatus, resolveVariablesTwice, elapsedMills } from "./utils";
+import { globAsync, getJsonObject, ExecCmdResult, execCmd, addToDictionary, getFileMTime, getFileStatus, resolveVariablesTwice, elapsedMills, info } from "./utils";
 import { getCppConfigParams, validateJsonFile, createOutputDirectory, buildCommand } from "./processor";
 import { checkFileExists, ConfigurationJson, resolveVariables } from "./cpptools";
 import { AsyncSemaphore } from "@esfx/async-semaphore";
@@ -15,7 +15,6 @@ import { AsyncMutex } from "@esfx/async-mutex";
 import { hasMagic } from "glob";
 import { deepClone } from "./vscode";
 import * as path from 'path';
-import { cyanBright } from 'colorette';
 
 export class Builder {
 	// TODO: improve, it is kinda 'poor man's approach', use prex CancellationToken?
@@ -136,10 +135,10 @@ export class Builder {
 				if (fileCount < 0) {
 					// do nothing
 				} else if (fileCount == 0) {
-					logOutput(cyanBright(`${buildStep.name}: nothing to do`));
+					logOutput(info(`${buildStep.name}: nothing to do`));
 				} else {
 					const elapsed = elapsedMills(start)/1000;
-					logOutput(cyanBright(`${buildStep.name}: ${fileCount} file(s) processed in ${elapsed.toFixed(2)}s`));
+					logOutput(info(`${buildStep.name}: ${fileCount} file(s) processed in ${elapsed.toFixed(2)}s`));
 				}
 			} catch (e) {
 				throw new Error(`An error occurred during '${buildStep.name}' step - terminating.\n${e.message}`);
@@ -181,7 +180,7 @@ export class Builder {
 					const fullInputFilePath = path.join(workspaceRoot, filePath);
 					const params = deepClone(extraParams);
 					// run for each file
-					const actionName: string = cyanBright(buildStep.name + ': ' + filePath);
+					const actionName: string = info(buildStep.name + ': ' + filePath);
 					const fileDirectory: string = path.dirname(filePath);
 					const fileExtension: string = path.extname(filePath);
 					const fullFileName: string = path.basename(filePath);
@@ -271,7 +270,7 @@ export class Builder {
 			}
 
 			let command: string = buildCommand(buildStep.command, extraParams);
-			const actionName = cyanBright(buildStep.name);
+			const actionName = info(buildStep.name);
 			const result = await this.execCommand(command, workspaceRoot, actionName, logOutput, logError);
 			
 			if (result && result.error) {

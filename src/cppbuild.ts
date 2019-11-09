@@ -8,7 +8,7 @@
 'use strict';
 
 import { IStringDictionary } from './interfaces';
-import { getLatestVersion, sleep, elapsedMills } from './utils';
+import { getLatestVersion, sleep, elapsedMills, info, warn, err, head, reg, high } from './utils';
 import { ToolName, ToolVersion, VscodeFolder, BuildStepsFile, PropertiesFile } from './consts';
 import { isNumber } from 'util';
 import { Builder } from './builder';
@@ -16,10 +16,9 @@ import * as semver from 'semver';
 import * as path from 'path';
 import cmd from 'commander';
 import { isatty } from 'tty';
-import { yellow, redBright, cyanBright, italic, magentaBright } from 'colorette';
 import { CancelToken } from "@esfx/async-canceltoken";
 
-const Description = cyanBright(`Multi-step C/C++ incremental build tool version ${ToolVersion}\nhttps://github.com/tdjastrzebski/cppbuild`);
+const Description = head(`Multi-step C/C++ incremental build tool version ${ToolVersion}\nhttps://github.com/tdjastrzebski/cppbuild`);
 const ProcessCwd: string = process.cwd();
 const Program = new cmd.Command();
 const DefaultMaxTask = 4;
@@ -82,7 +81,7 @@ function doTask(task: (...args: any) => Promise<void>) {
 			exitCode = 1;
 			trace('catch build error');
 			const error = e as Error;
-			if (error) console.error(redBright(error.message));
+			if (error) console.error(err(error.message));
 		} finally {
 			const elapsed = elapsedMills(start);
 			trace('finally ' + elapsed);
@@ -96,8 +95,8 @@ function doTask(task: (...args: any) => Promise<void>) {
 			getLatest.cancel(); // wait no more
 
 			if (latestVersion && semver.gt(latestVersion, ToolVersion)) {
-				console.log(yellow(`\nThe latest version of ${ToolName} is ${latestVersion} and you have ${ToolVersion}.`));
-				console.log(`Update it now: npm install -g ${ToolName}`);
+				console.log(warn(`\nThe latest version of ${ToolName} is ${latestVersion} and you have ${ToolVersion}.`));
+				console.log(reg(`Update it now: npm install -g ${ToolName}`));
 			}
 
 			process.exit(exitCode);
@@ -153,7 +152,7 @@ async function build(configName: string | undefined, buildTypeName: string | und
 		if (isNumber(Program.maxTasks)) {
 			maxTask = Program.maxTasks;
 		} else {
-			console.error(yellow(`Invalid maximum number of concurrent tasks - option ignored.`));
+			console.error(warn(`Invalid maximum number of concurrent tasks - option ignored.`));
 		}
 	}
 
@@ -163,18 +162,18 @@ async function build(configName: string | undefined, buildTypeName: string | und
 
 	console.log(Description);
 	console.log();
-	console.log(italic('workspace root: ' + workspaceRoot));
-	console.log(italic('build steps file: ' + buildFile));
-	console.log(italic('C/C++ properties file: ' + (propertiesFile || 'none')));
-	console.log(italic('config name: ' + (configName || 'none')));
-	console.log(italic('build type: ' + (buildTypeName || 'none')));
+	console.log(reg('workspace root: ') + high(workspaceRoot));
+	console.log(reg('build steps file: ') + high(buildFile));
+	console.log(reg('C/C++ properties file: ') + high(propertiesFile || 'none'));
+	console.log(reg('config name: ') + high(configName || 'none'));
+	console.log(reg('build type: ') + high(buildTypeName || 'none'));
 	console.log();
 
 	const builder = new Builder();
 	const start = process.hrtime();
 	await builder.runBuild(workspaceRoot, propertiesFile, buildFile, configName!, buildTypeName!, cliExtraParams, maxTask, forceRebuild, logBuildOutput, logBuildError);
 	const timeElapsed = elapsedMills(start) / 1000;
-	console.log(cyanBright(`Build steps completed in ${timeElapsed.toFixed(2)}s`));
+	console.log(info(`Build steps completed in ${timeElapsed.toFixed(2)}s`));
 }
 
 function logBuildOutput(line: string) {
@@ -189,7 +188,7 @@ function logBuildError(line: string) {
 function parseVariables(variable: string, params: IStringDictionary<string> = {}): IStringDictionary<string> {
 	const i = variable.indexOf('=');
 	if (i <= 0) {
-		console.error(yellow('invalid variable name/value: ' + variable));
+		console.error(warn('invalid variable name/value: ' + variable));
 		return params;
 	}
 	const name = variable.substr(0, i).trim();
