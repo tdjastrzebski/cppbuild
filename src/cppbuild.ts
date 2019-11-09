@@ -8,10 +8,9 @@
 'use strict';
 
 import { IStringDictionary } from './interfaces';
-import { getLatestVersion, sleep, elapsedMills, info, warn, err, head, reg, high } from './utils';
+import { getLatestVersion, sleep, elapsedMills, info, warn, err, reg, high } from './utils';
 import { ToolName, ToolVersion, VscodeFolder, BuildStepsFile, PropertiesFile } from './consts';
 import { CancelToken } from "@esfx/async-canceltoken";
-import { isNumber } from 'util';
 import { Builder } from './builder';
 import { isatty } from 'tty';
 import cmd from 'commander';
@@ -149,8 +148,9 @@ async function build(configName: string | undefined, buildTypeName: string | und
 	}
 
 	if (Program.maxTasks) {
-		if (isNumber(Program.maxTasks)) {
-			maxTask = Program.maxTasks;
+		const _maxTask = parseInt(Program.maxTasks);
+		if (!isNaN(_maxTask)) {
+			maxTask = _maxTask;
 		} else {
 			console.error(warn(`Invalid maximum number of concurrent tasks - option ignored.`));
 		}
