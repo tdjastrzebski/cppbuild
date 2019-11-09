@@ -10,28 +10,26 @@ import { IStringDictionary } from './interfaces';
 import { resolveVariables } from './cpptools';
 import { CancelToken, CancelSubscription, CancelError } from "@esfx/async-canceltoken";
 
-export function head(text: string) {
-	return chalk.rgb(86, 156, 214)(text);
-}
+const ctx = new chalk.Instance({ level: 3 });
 
 export function info(text: string) {
-	return chalk.rgb(78, 201, 176)(text);
+	return ctx.rgb(86, 156, 214)(text);
 }
 
 export function warn(text: string) {
-	return chalk.rgb(220, 220, 170)(text);
+	return ctx.rgb(205, 151, 49)(text); // 220, 220, 170
 }
 
 export function err(text: string): string {
-	return chalk.rgb(224, 135, 113)(text);
+	return ctx.rgb(224, 110, 100)(text); // 224, 135, 113
 }
 
 export function reg(text: string): string {
-	return chalk.rgb(204, 204, 204)(text);
+	return ctx.rgb(204, 204, 204)(text);
 }
 
 export function high(text: string): string {
-	return chalk.rgb(181, 206, 169)(text);
+	return ctx.rgb(181, 206, 169)(text); // 114, 157, 179
 }
 
 export function testColors() {

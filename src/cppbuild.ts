@@ -18,7 +18,7 @@ import cmd from 'commander';
 import * as semver from 'semver';
 import * as path from 'path';
 
-const Description = head(`Multi-step C/C++ incremental build tool version ${ToolVersion}\nhttps://github.com/tdjastrzebski/cppbuild`);
+const Description = info(`Multi-step C/C++ incremental build tool version ${ToolVersion}\nhttps://github.com/tdjastrzebski/cppbuild`);
 const ProcessCwd: string = process.cwd();
 const Program = new cmd.Command();
 const DefaultMaxTask = 4;
