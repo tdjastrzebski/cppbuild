@@ -10,13 +10,13 @@
 import { IStringDictionary } from './interfaces';
 import { getLatestVersion, sleep, elapsedMills, info, warn, err, head, reg, high } from './utils';
 import { ToolName, ToolVersion, VscodeFolder, BuildStepsFile, PropertiesFile } from './consts';
+import { CancelToken } from "@esfx/async-canceltoken";
 import { isNumber } from 'util';
 import { Builder } from './builder';
+import { isatty } from 'tty';
+import cmd from 'commander';
 import * as semver from 'semver';
 import * as path from 'path';
-import cmd from 'commander';
-import { isatty } from 'tty';
-import { CancelToken } from "@esfx/async-canceltoken";
 
 const Description = head(`Multi-step C/C++ incremental build tool version ${ToolVersion}\nhttps://github.com/tdjastrzebski/cppbuild`);
 const ProcessCwd: string = process.cwd();
