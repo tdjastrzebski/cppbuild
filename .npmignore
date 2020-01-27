@@ -1,5 +1,6 @@
 /src
-/tests
+/test
+/test-cpp
 *.js.map
 *.json
 *.txt

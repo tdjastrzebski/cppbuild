@@ -75,15 +75,19 @@ private get ExtendedEnvironment(): Environment {
 	return result;
 }
 */
-
-export function resolveVariables(input: string, additionalEnvironment: { [key: string]: string | string[] }): string {
-	if (!input) {
-		return "";
+export function resolveVariables(input: string | undefined, additionalEnvironment: { [key: string]: string | string[] }): string;
+export function resolveVariables(input: string[] | undefined, additionalEnvironment: { [key: string]: string | string[] }): string[];
+export function resolveVariables(input: string | string[] | undefined, additionalEnvironment: { [key: string]: string | string[] }): any {
+	if (!additionalEnvironment) additionalEnvironment = {};
+	if (isArrayOfString(input)) {
+		const tmpArray: string[] = [];
+		if (!input) return tmpArray;
+		input.forEach(val => {
+			tmpArray.push(resolveVariables(val, additionalEnvironment));
+		});
+		return tmpArray;
 	}
-	if (!additionalEnvironment) {
-		additionalEnvironment = {};
-	}
-
+	if (!input) return '';
 	// Replace environment and configuration variables.
 	let regexp: () => RegExp = () => /\$\{((env|config|workspaceFolder)(\.|:))?(.*?)\}/g;
 	let ret: string = input;
@@ -163,7 +167,7 @@ export function isArray(input: any): input is any[] {
 }
 
 let vcpkgRoot: string;
-export function getVcpkgRoot(): string {
+function getVcpkgRoot(): string {
 	if (!vcpkgRoot && vcpkgRoot !== "") {
 		vcpkgRoot = "";
 		// Check for vcpkg instance.
@@ -178,7 +182,7 @@ export function getVcpkgRoot(): string {
 	return vcpkgRoot;
 }
 
-export function getVcpkgPathDescriptorFile(): string {
+function getVcpkgPathDescriptorFile(): string {
 	if (process.platform === 'win32') {
 		return path.join(process.env.LOCALAPPDATA!, "vcpkg/vcpkg.path.txt");
 	} else {

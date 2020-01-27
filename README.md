@@ -66,7 +66,9 @@ In contrast, **fileList** only populates `$${fileDirectory}`, `$${filePath}` and
 1. If **outputDirectory** or **outputFile** are specified, the required directory will be created if it does not exist.
 1. **includePath** and **forcedInclude** multi-value variables defined in `c_cpp_properties.json` can contain [glob patterns](https://en.wikipedia.org/wiki/Glob_(programming)). Paths will be expanded.
 1. Variables can be defined globally, on configuration, task and build type level. Low level variables override higher levels variables. Command line provided variables have the highest priority.
-1. Variable values can contain other variables.
+1. Variable values can contain other variables and templates. For that reason special characters like `\${}[]()` in simple literals (e.g. file paths) must be escaped using `\`, e.g. `"C:\\Program Files \\(x86\\)"`.
+1. Order in which variables are defined does not matter. Variables defined first can be used later, variables defined in higher level can be included on lower level, e.g. `"paths": ["$${paths}", "c:\additional_path"]`.
+1. Multi-value variables can contain variable name, glob expression or comma-separated list of quoted values or templates, e.g. `[$${paths}]`, `[$${**/*.c}]`, `[$${'main.h', 'main.c'}]`, `[$${'**/*.h', '**/*.c'}]`.
 1. JSON file can contain comments - internally [MS JSONC](https://github.com/microsoft/node-jsonc-parser) parser is used.
 1. **CppBuild** can be run without `c_cpp_properties.json` file. Use `-p` flag with no file name.
 1. It is possible to provide root folder, alternative configuration file paths and names using command line options.  
@@ -77,7 +79,7 @@ The following variables have been predefined:
 1. **workspaceRoot**/**workspaceFolder** (full folder path) and **workspaceRootFolderName** (just the folder name)
 1. **configName** - selected build configuration name
 1. **buildTypeName** - selected build type name (optional)
-1. **filePath** (relative file path), **fileDirectory** (relative file directory), **fileName** (file name without extension), **fullFileName** (file name with extension), **fileExtension** (without .)  
+1. **filePath** (relative file path), **fileDirectory** (relative file directory), **fileName** (file name without extension), **fullFileName** (file name with extension), **fileExtension** (without `.`)  
 The above variables are available when **filePattern** or **fileList** build step property is defined. When **filePattern** is defined, variables have single values and `command` is executed for every file matching the specified pattern. When **fileList** is defined, variables have multiple values but build step `command` is executed just once.
 1. **outputDirectory** - output directory, available when build step **outputDirectory** template is specified. Path will be created if it does not exist.
 1. **includePath**, **defines** and **forcedInclude** - multi-valued variables populated from `c_cpp_properties.json` (if used)
@@ -94,5 +96,14 @@ Finally, if you find this tool useful, please give it a star. This way others wi
 # Release notes
 * 1.0 Initial release
 * 1.1 `params` can be added on all levels, tool can work without C/C++ extension and `c_cpp_properties.json` file.
-* 1.2 Added support for incremental builds and `outputFile` build step property.
+* 1.2 Added support for incremental builds and `outputFile` build step property and variable.
 * 1.2.8 Output information improved
+* 1.3.0
+    * Much more capable recursive parser.
+    * Multi-value variables can be glob expressions or lists. Example: `(-include [$${${fileDirectory}/include/*.h}])`. This sub-template includes all the header files from the given file `include` sub-folder.
+    * Variables can contain templates and reference previously defined variables of the same name. This way values defined previously can be merged with new values.
+    * Escape character `\` support. Special characters like []{}() in file paths always have to be escaped. **This change is breaking.**
+    * `trimIncludePaths` build step and `-t` options added. When set to `true`, static analysis is performed and only required include paths are used. This option can greatly reduce command length, helping to avoid Windows 8192 characters limit.
+    * `-d` option added for debug output.
+    * `-i` option added for creating sample build configuration.
+    * `-c` option added to continue on errors.

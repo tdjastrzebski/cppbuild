@@ -2,3 +2,4 @@
 /out
 /*.map
 /*.js
+/test-cpp/build

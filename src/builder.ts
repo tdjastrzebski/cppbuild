@@ -1,36 +1,46 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) 2019 Tomasz Jastrzębski. All rights reserved.
+ *  Copyright (c) 2019-2020 Tomasz Jastrzębski. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
 'use strict';
 
 import { BuildStepsFileSchema, PropertiesFileSchema } from "./consts";
-import { BuildConfigurations, BuildConfiguration, BuildType, CppParams, BuildStep, IStringDictionary } from "./interfaces";
-import { globAsync, getJsonObject, ExecCmdResult, execCmd, addToDictionary, getFileMTime, getFileStatus, resolveVariablesTwice, elapsedMills, info } from "./utils";
-import { getCppConfigParams, validateJsonFile, createOutputDirectory, buildCommand } from "./processor";
-import { checkFileExists, ConfigurationJson, resolveVariables } from "./cpptools";
+import { GlobalConfiguration, BuildConfiguration, BuildType, CppParams, BuildStep, BuilderOptions, ParamsDictionary, ExpandPathsOption, CompilerType, Logger } from "./interfaces";
+import { getJsonObject, ExecCmdResult, execCmd, getFileMTime, getFileStatus, elapsedMills, iColor, makeDirectory, dColor, escapeTemplateText, unescapeTemplateText, eColor, kColor } from "./utils";
+import { getCppConfigParams, validateJsonFile, createOutputDirectory, expandTemplate, expandTemplates, expandMultivalues } from "./processor";
+import { checkFileExists, ConfigurationJson, checkDirectoryExists, isArrayOfString, resolveVariables } from "./cpptools";
 import { AsyncSemaphore } from "@esfx/async-semaphore";
+import { CancelToken } from "@esfx/async-canceltoken";
 import { AsyncMutex } from "@esfx/async-mutex";
-import { hasMagic } from "glob";
 import { deepClone } from "./vscode";
 import * as path from 'path';
+import * as fs from 'fs';
+import { IncludesTrimmer } from "./trimmers";
+import { PredefinedVariables as PV } from "./interfaces";
+import uniq from 'lodash.uniq';
 
 export class Builder {
-	// TODO: improve, it is kinda 'poor man's approach', use prex CancellationToken?
-	private _aborting: boolean = false;
-
-	async runBuild(workspaceRoot: string, propertiesPath: string | undefined, buildStepsPath: string, configName: string, buildTypeName: string, cliExtraParams: IStringDictionary<string | string[]>, maxTaskCount: number, forceRebuild: boolean, logOutput: (text: string) => void, logError: (text: string) => void) {
+	/** @returns [totalFilesProcessed, totalFilesSkipped, totalErrorsEncountered] */
+	async runBuild(workspaceRoot: string, propertiesPath: string | undefined, buildStepsPath: string, configName: string, buildTypeName: string, cliParams: ParamsDictionary, options: BuilderOptions, logOutput: Logger, logError: Logger): Promise<[number, number, number]> {
 		const workspaceRootFolderName = path.basename(workspaceRoot);
-		const extraParams: IStringDictionary<string | string[]> = { 'workspaceRoot': workspaceRoot, 'workspaceFolder': workspaceRoot, 'workspaceRootFolderName': workspaceRootFolderName, 'configName': configName };
+		const variables: ParamsDictionary[] = [];
+		const cppVariables: ParamsDictionary = {};
+		const globalVariables: ParamsDictionary = {};
+		
+		globalVariables[PV.workspaceRoot] = escapeTemplateText(workspaceRoot);
+		globalVariables[PV.workspaceFolder] = escapeTemplateText(workspaceRoot);
+		globalVariables[PV.workspaceRootFolderName] = escapeTemplateText(workspaceRootFolderName);
+		globalVariables[PV.configName] = escapeTemplateText(configName);
+		variables.push(globalVariables);
 
-		if (buildTypeName) extraParams['buildTypeName'] = buildTypeName;
+		if (buildTypeName) globalVariables[PV.buildTypeName] = buildTypeName;
 
 		if (!configName) {
 			throw new Error('Configuration name argument must be provided.');
 		}
 
-		if (maxTaskCount < 1) {
+		if (options.maxTasks < 1) {
 			throw new Error('Maximum number of concurrent tasks must be greater than 0.');
 		}
 
@@ -61,16 +71,24 @@ export class Builder {
 			if (!cppParams) {
 				throw new Error(`Configuration name '${configName}' not found in '${propertiesPath}' file.`);
 			}
-
-			// fix/expand includePaths and forcedInclude - since paths may contain '**' wildcards
-			if (cppParams.includePath) cppParams.includePath = await this.expandPaths(workspaceRoot, extraParams, cppParams.includePath);
-			extraParams['includePath'] = cppParams.includePath || [];
-
-			if (cppParams.forcedInclude) cppParams.forcedInclude = await this.expandPaths(workspaceRoot, extraParams, cppParams.forcedInclude);
-			extraParams['forcedInclude'] = cppParams.forcedInclude || [];
-
-			extraParams['defines'] = cppParams.defines || [];
+			
+			// resolve 'includePath', 'forcedInclude' and 'defines' variables using cpptools resolver first
+			// since special chars in variables from cpp properties are not escaped
+			const additionalEnvironment: ParamsDictionary = {};
+			additionalEnvironment[PV.workspaceRoot] = workspaceRoot;
+			additionalEnvironment[PV.workspaceFolder] = workspaceRoot;
+			additionalEnvironment[PV.workspaceRootFolderName] = workspaceRootFolderName;
+			cppVariables[PV.includePath] = escapeTemplateText(resolveVariables(cppParams.includePath, additionalEnvironment));
+			cppVariables[PV.forcedInclude] = escapeTemplateText(resolveVariables(cppParams.forcedInclude, additionalEnvironment));
+			cppVariables[PV.defines] = escapeTemplateText(resolveVariables(cppParams.defines, additionalEnvironment));
+		} else {
+			// make sure 'includePath', 'forcedInclude' and 'defines' are always present, even not passed from properties file
+			cppVariables[PV.includePath] = [];
+			cppVariables[PV.forcedInclude] = [];
+			cppVariables[PV.defines] = [];
 		}
+
+		variables.push(cppVariables);
 
 		if (await checkFileExists(buildStepsPath) === false) {
 			throw new Error(`Build steps file '${buildStepsPath}' not found.`);
@@ -81,13 +99,13 @@ export class Builder {
 			throw new Error(`'${buildStepsPath}' file schema validation error(s).\n${(<string[]>errors).join('\n\n')}`);
 		}
 
-		const buildConfigs: BuildConfigurations | undefined = getJsonObject(buildStepsPath);
+		const globalConfig: GlobalConfiguration | undefined = getJsonObject(buildStepsPath);
 
-		if (!buildConfigs) {
+		if (!globalConfig) {
 			throw new Error(`No build steps defined in file '${buildStepsPath}'.`);
 		}
 
-		const buildConfig: BuildConfiguration | undefined = buildConfigs!.configurations.filter(c => c.name == configName)[0];
+		const buildConfig: BuildConfiguration | undefined = globalConfig!.configurations.filter(c => c.name == configName)[0];
 
 		if (!buildConfig) {
 			throw new Error(`Build configuration '${configName}' not found in file '${buildStepsPath}'.`);
@@ -112,117 +130,185 @@ export class Builder {
 			buildType = buildTypes[0];
 		}
 
-		if (buildConfigs.params) addToDictionary(buildConfigs.params, extraParams); // add global params
-		if (buildConfig.params) addToDictionary(buildConfig.params, extraParams); // add config params
+		// apply global variables
+		if (globalConfig.params) variables.push(globalConfig.params);
+		// apply config variables
+		if (buildConfig.params) variables.push(buildConfig.params);
+		// apply build type variables
+		if (buildType?.params) variables.push(buildType.params);
+
+		let totalFilesProcessed = 0;
+		let totalFilesSkipped = 0;
+		let totalErrorsEncountered = 0;
 
 		// run build steps
 		for (const buildStep of buildConfig.buildSteps) {
-			const stepParams = deepClone(extraParams);
-			if (buildStep.params) addToDictionary(buildStep.params, stepParams); // add step params
-			if (buildType && buildType.params) addToDictionary(buildType.params, stepParams); // add build type params
-			// apply command line params last - they override any other params
-			if (cliExtraParams) addToDictionary(cliExtraParams, stepParams);
+			if (!buildStep.params) buildStep.params = {};
+			// apply step variables
+			variables.push(buildStep.params);
+			// TODO: check if any of the following step param is already set, throw error if so or resolve these variables ..
+			if (buildStep.name) buildStep.params[PV.stepName] = buildStep.name;
+			if (buildStep.filePattern) buildStep.params[PV.filePattern] = buildStep.filePattern;
+			if (buildStep.fileList) buildStep.params[PV.fileList] = buildStep.fileList;
+			if (buildStep.outputDirectory) buildStep.params[PV.outputDirectory] = buildStep.outputDirectory;
+			if (buildStep.outputFile) buildStep.params[PV.outputFile] = buildStep.outputFile;
+
+			// apply command line params last
+			if (cliParams) variables.push(cliParams);
 
 			if (buildStep.filePattern && buildStep.fileList) {
 				throw new Error(`Build step '${buildStep.name}' has both filePattern and fileList variables defined.`);
 			}
-			if (buildStep.filePattern) buildStep.filePattern = resolveVariablesTwice(buildStep.filePattern, stepParams);
-			if (buildStep.fileList) buildStep.fileList = resolveVariablesTwice(buildStep.fileList, stepParams);
 
 			try {
 				const start = process.hrtime();
-				const fileCount = await this.runBuildStep(workspaceRoot, buildStep, stepParams, maxTaskCount, forceRebuild, logOutput, logError);
-				if (fileCount < 0) {
-					// do nothing
-				} else if (fileCount == 0) {
-					logOutput(info(`${buildStep.name}: nothing to do`));
+				const result = await this.runBuildStep(workspaceRoot, buildStep, variables, options, logOutput, logError);
+				const filesProcessed = result[0];
+				const filesSkipped = result[1];
+				const errorsEncountered = result[2];
+
+				totalFilesSkipped += filesSkipped;
+				totalErrorsEncountered += errorsEncountered;
+				const errorsColor = errorsEncountered > 0 ? eColor : kColor;
+				if (filesProcessed == -1) {
+					logOutput(iColor(`${buildStep.name}: step completed, ` + errorsColor(`${errorsEncountered} error(s) encountered.`)));
 				} else {
-					const elapsed = elapsedMills(start)/1000;
-					logOutput(info(`${buildStep.name}: ${fileCount} file(s) processed in ${elapsed.toFixed(2)}s`));
+					const elapsed = elapsedMills(start) / 1000;
+					logOutput(iColor(`${buildStep.name}: build step completed in ${elapsed.toFixed(2)}s, ${filesProcessed} file(s) processed, ${filesSkipped} file(s) skipped, ` + errorsColor(`${errorsEncountered} error(s) encountered.`)));
+					totalFilesProcessed += filesProcessed;
 				}
 			} catch (e) {
 				throw new Error(`An error occurred during '${buildStep.name}' step - terminating.\n${e.message}`);
 			}
 		}
+
+		return [totalFilesProcessed, totalFilesSkipped, totalErrorsEncountered];
 	}
 
-	// TODO: consider async file existence check
-	async getVerifiedFilePaths(workspaceRoot: string, pattern: string): Promise<string[]> {
-		const filePaths: string[] = await globAsync(pattern, { cwd: workspaceRoot });
-		const verifiedFilePaths: string[] = [];
+	/** @returns [filesProcessedCount, filesSkipped, errorsEncountered] */
+	async runBuildStep(workspaceRoot: string, buildStep: BuildStep, variables: ParamsDictionary[], options: BuilderOptions, logOutput: Logger, logError: Logger): Promise<[number, number, number]> {
+		const cancelSource = CancelToken.source();
+		const stepVariableValues: Map<string, string[]> = new Map<string, string[]>();
+		const stepVariableResolver = (name: string, expandOption: ExpandPathsOption) => { return this.resolveVariable(workspaceRoot, name, variables, expandOption, stepVariableValues); };
 
-		const tasks: Promise<void>[] = filePaths.map(async (filePath) => {
-			const fullInputFilePath = path.join(workspaceRoot, filePath);
-			if (false === await checkFileExists(fullInputFilePath)) {
-				return;
-			} else {
-				verifiedFilePaths.push(filePath);
-			}
-		});
-		
-		await Promise.all(tasks);
-		return verifiedFilePaths;
-	}
+		// resolve 'includePaths'
+		let stepIncludePaths = stepVariableResolver(PV.includePath, ExpandPathsOption.directoriesOnly);
+		stepIncludePaths = expandMultivalues(workspaceRoot, stepIncludePaths, stepVariableResolver, ExpandPathsOption.directoriesOnly);
 
-	// TODO: consider adding a flag to allow to continue on errors
-	async runBuildStep(workspaceRoot: string, buildStep: BuildStep, extraParams: IStringDictionary<string | string[]>, maxTaskCount: number, forceRebuild: boolean, logOutput: (text: string) => void, logError: (text: string) => void): Promise<number> {
+		let trimmer: IncludesTrimmer | undefined = undefined;
+		let errorsEncountered = 0;
+		let filesSkipped = 0;
+
+		if ((buildStep.trimIncludePaths || options.trimIncludePaths) && isArrayOfString(stepIncludePaths)) {
+			trimmer = new IncludesTrimmer(workspaceRoot);
+			await trimmer.enlistFiles(stepIncludePaths);
+		}
+
 		if (buildStep.filePattern) {
 			// run command for each file
-			const filePaths = await this.getVerifiedFilePaths(workspaceRoot, buildStep.filePattern);
-			const semaphore: AsyncSemaphore = new AsyncSemaphore(maxTaskCount);
-			let filesProcessedCount = 0;
+			let filePaths = stepVariableResolver(PV.filePattern, ExpandPathsOption.filesOnly);
+			filePaths = expandMultivalues(workspaceRoot, buildStep.filePattern, stepVariableResolver, ExpandPathsOption.filesOnly);
+
+			const semaphore: AsyncSemaphore = new AsyncSemaphore(options.maxTasks);
+			let filesProcessed = 0;
 
 			const tasks: Promise<void>[] = filePaths.map(async (filePath) => {
-				if (this._aborting) return; // TODO: use @esfx/async-canceltoken
+				// run for each file
+				if (cancelSource.token.signaled) return;
 				await semaphore.wait();
-				
+
 				try {
-					const fullInputFilePath = path.join(workspaceRoot, filePath);
-					const params = deepClone(extraParams);
-					// run for each file
-					const actionName: string = info(buildStep.name + ': ' + filePath);
+					const fullInputFilePath = path.isAbsolute(filePath) ? filePath : path.join(workspaceRoot, filePath);
+					if (!fullInputFilePath) throw new Error(`Incorrect file path: '${filePath}.'`);
+					if (!await checkFileExists(fullInputFilePath)) throw new Error(`File '${filePath}' does not exist.`);
+
+					const stepVariables = deepClone(variables);
+					const cmdVariables: ParamsDictionary = {};
+					stepVariables.push(cmdVariables);
+
 					const fileDirectory: string = path.dirname(filePath);
 					const fileExtension: string = path.extname(filePath);
 					const fullFileName: string = path.basename(filePath);
 					const fileName: string = fullFileName.substr(0, fullFileName.length - fileExtension.length);
-					params['fileDirectory'] = fileDirectory == '.' ? '' : fileDirectory;
-					params['filePath'] = filePath;
-					params['fileName'] = fileName;
-					params['fullFileName'] = fullFileName;
-					params['fileExtension'] = fileExtension.length > 0 ? fileExtension.substr(1) : "";
+					// set file-specific command-level variables
+					cmdVariables[PV.fileDirectory] = escapeTemplateText(fileDirectory == '.' ? '' : fileDirectory);
+					cmdVariables[PV.filePath] = escapeTemplateText(filePath);
+					cmdVariables[PV.fileName] = escapeTemplateText(fileName);
+					cmdVariables[PV.fullFileName] = escapeTemplateText(fullFileName);
+					cmdVariables[PV.fileExtension] = escapeTemplateText(fileExtension.length > 0 ? fileExtension.substr(1) : "");
 
 					if (buildStep.outputFile) {
-						let outputFilePath: string = resolveVariablesTwice(buildStep.outputFile, params);
+						const outputFilePath = this.resolveVariable(workspaceRoot, PV.outputFile, stepVariables, ExpandPathsOption.noExpand);
+						if (isArrayOfString(outputFilePath)) throw new Error(`Template '${buildStep.outputFile}' resolves to multiple values.`);
 
 						const inputFileDate: Date = await getFileMTime(fullInputFilePath);
 						let fullOutputFilePath = outputFilePath;
 						if (!path.isAbsolute(fullOutputFilePath)) fullOutputFilePath = path.join(workspaceRoot, outputFilePath);
 
-						if (!forceRebuild && await checkFileExists(fullOutputFilePath) === true) {
+						if (!options.forceRebuild && await checkFileExists(fullOutputFilePath) === true) {
 							const outputFileStats = await getFileStatus(fullOutputFilePath);
 							if (outputFileStats.mtime > inputFileDate) {
 								// input file has not been modified since output file modified - skip this file build
-								// TODO: add option to force build
+								filesSkipped++;
 								return;
 							}
 						}
-						params['outputFile'] = outputFilePath;
+						cmdVariables[PV.outputFile] = escapeTemplateText(outputFilePath);
 						const outputFileDirectory = path.dirname(outputFilePath);
 						await createOutputDirectory(workspaceRoot, outputFileDirectory);
 					}
 
 					if (buildStep.outputDirectory) {
-						const outputDirectory = resolveVariablesTwice(buildStep.outputDirectory, params);
-						params['outputDirectory'] = outputDirectory;
+						const outputDirectory = this.resolveVariable(workspaceRoot, PV.outputDirectory, stepVariables, ExpandPathsOption.directoriesOnly);
+						if (isArrayOfString(outputDirectory)) throw new Error(`'${PV.outputDirectory}' variable has multiple values.`);
+						cmdVariables[PV.outputDirectory] = outputDirectory;
 						await createOutputDirectory(workspaceRoot, outputDirectory);
 					}
 
-					let command: string = buildCommand(buildStep.command, params);
-					const result = await this.execCommand(command, workspaceRoot, actionName, logOutput, logError);
-					filesProcessedCount ++;
-					if (result && result.error) throw result.error;
+					// create new resolver with new cache
+					const cmdVariableValues: Map<string, string[]> = new Map<string, string[]>();
+					const cmdVariableResolver = (name: string, expandOption: ExpandPathsOption) => { return this.resolveVariable(workspaceRoot, name, stepVariables, expandOption, cmdVariableValues); };
+
+					// resolve 'forcedInclude'
+					let forcedInclude = cmdVariableResolver(PV.forcedInclude, ExpandPathsOption.filesOnly);
+					forcedInclude = expandMultivalues(workspaceRoot, forcedInclude, cmdVariableResolver, ExpandPathsOption.filesOnly);
+					cmdVariables[PV.forcedInclude] = forcedInclude;
+					cmdVariableValues.set(PV.forcedInclude, forcedInclude); // prevent resolving forcedInclude again
+
+					// resolve 'includePaths'
+					let cmdIncludePaths = cmdVariableResolver(PV.includePath, ExpandPathsOption.directoriesOnly);
+					cmdIncludePaths = expandMultivalues(workspaceRoot, cmdIncludePaths, cmdVariableResolver, ExpandPathsOption.directoriesOnly);
+
+					if (trimmer) {
+						// includePaths trimming is enabled
+						// enlist additional files from path resolved on command level
+						await trimmer.enlistFiles(cmdIncludePaths); // enlist files from additional paths
+						forcedInclude.unshift(filePath); // add the file being processed at index 0
+						forcedInclude.forEach((e, i, a) => { a[i] = unescapeTemplateText(e); });
+						// get includePaths for the file being processed and any forcedInclude files
+						cmdIncludePaths = await this.getIncludes(workspaceRoot, trimmer, forcedInclude);
+						cmdIncludePaths.forEach((e, i, a) => { a[i] = escapeTemplateText(e); });
+						forcedInclude.shift(); // remove file being processed
+						forcedInclude.forEach((e, i, a) => { a[i] = escapeTemplateText(e); });
+					}
+
+					cmdVariables[PV.includePath] = cmdIncludePaths;
+					cmdVariableValues.set(PV.includePath, cmdIncludePaths); // prevent resolving includePaths again
+
+					const command = expandTemplate(workspaceRoot, buildStep.command, cmdVariableResolver);
+					const actionName = buildStep.name + ': ' + filePath;
+					const result = await this.execCommand(workspaceRoot, command, actionName, logOutput, logError, cancelSource.token, options.debug);
+
+					if (result) {
+						if (result.error) {
+							errorsEncountered++;
+							if (!options.continueOnError) cancelSource.cancel();
+						} else {
+							filesProcessed++;
+						}
+					}
 				} catch (e) {
-					this._aborting = true;
+					cancelSource.cancel();
 					throw e;
 				} finally {
 					semaphore.release();
@@ -231,22 +317,26 @@ export class Builder {
 
 			try {
 				await Promise.all(tasks);
-				return filesProcessedCount;
+				return [filesProcessed, filesSkipped, errorsEncountered];
 			} catch (e) {
-				this._aborting = true;
+				cancelSource.cancel();
 				throw e;
 			}
 		} else {
-			extraParams = deepClone(extraParams);
+			// run build step just once
+			const stepVariables = deepClone(variables);
+			const cmdVariables: ParamsDictionary = {};
+			stepVariables.push(cmdVariables);
 
 			if (buildStep.fileList) {
-				const filePaths = await this.getVerifiedFilePaths(workspaceRoot, buildStep.fileList);
+				let cmdFilePaths = stepVariableResolver(PV.fileList, ExpandPathsOption.filesOnly);
+				cmdFilePaths = expandMultivalues(workspaceRoot, cmdFilePaths, stepVariableResolver, ExpandPathsOption.filesOnly);
 				const fileDirectories: string[] = [];
 				const fileNames: string[] = [];
 				const fullFileNames: string[] = [];
 				const fileExtensions: string[] = [];
 
-				filePaths.map(filePath => {
+				cmdFilePaths.forEach(filePath => {
 					const fileDirectory = path.dirname(filePath);
 					fileDirectories.push(fileDirectory == '.' ? '' : fileDirectory);
 					let fileExtension: string = path.extname(filePath);
@@ -255,104 +345,284 @@ export class Builder {
 					fullFileNames.push(fullFileName);
 					fileExtensions.push(fileExtension.length > 0 ? fileExtension.substr(1) : "");
 				});
-
-				extraParams['fileDirectory'] = fileDirectories;
-				extraParams['filePath'] = filePaths;
-				extraParams['fileName'] = fileNames;
-				extraParams['fullFileName'] = fullFileNames;
-				extraParams['fileExtension'] = fileExtensions;
+				// set fileList-specific command-level variables
+				cmdVariables[PV.fileDirectory] = escapeTemplateText(fileDirectories);
+				cmdVariables[PV.filePath] = escapeTemplateText(cmdFilePaths);
+				cmdVariables[PV.fileName] = escapeTemplateText(fileNames);
+				cmdVariables[PV.fullFileName] = escapeTemplateText(fullFileNames);
+				cmdVariables[PV.fileExtension] = escapeTemplateText(fileExtensions);
 			}
 
+			// create new resolver with new cache
+			const cmdVariableResolver = (name: string, expandOption: ExpandPathsOption) => { return this.resolveVariable(workspaceRoot, name, stepVariables, expandOption, cmdVariableValues); };
+			const cmdVariableValues: Map<string, string[]> = new Map<string, string[]>();
+
 			if (buildStep.outputDirectory) {
-				const outputDirectory = resolveVariablesTwice(buildStep.outputDirectory, extraParams);
-				extraParams['outputDirectory'] = outputDirectory;
+				const outputDirectory = cmdVariableResolver(PV.outputDirectory, ExpandPathsOption.directoriesOnly);
+				cmdVariables[PV.outputDirectory] = outputDirectory;
+				if (isArrayOfString(outputDirectory)) throw new Error(`'${PV.outputDirectory}' variable has multiple values.`);
 				await createOutputDirectory(workspaceRoot, outputDirectory);
 			}
 
-			let command: string = buildCommand(buildStep.command, extraParams);
-			const actionName = info(buildStep.name);
-			const result = await this.execCommand(command, workspaceRoot, actionName, logOutput, logError);
-			
+			// TODO: consider trimming paths as well
+			const command = expandTemplate(workspaceRoot, buildStep.command, cmdVariableResolver);
+			const actionName = buildStep.name;
+			const result = await this.execCommand(workspaceRoot, command, actionName, logOutput, logError, cancelSource.token, options.debug);
+
 			if (result && result.error) {
-				throw result.error;
+				if (!options.continueOnError) cancelSource.cancel();
+				return [-1, 0, 1];
 			} else {
-				return -1;
+				return [-1, 0, 0];
 			}
 		}
 	}
+	/*
+	resolveVariables(workspaceRoot: string, variables: ParamsDictionary[], expandOption: ExpandPathsOption = ExpandPathsOption.expandAll): ParamsDictionary {
+		const variableNames: Set<string> = new Set<string>();
+		const newVariables: ParamsDictionary = {};
+		const resolvedValues = new Map<string, string | string[]>();
 
-	/** fix/expand includePaths and forcedInclude - since they may contain '**' wildcards */
-	async expandPaths(workspaceRoot: string, extraParams: IStringDictionary<string | string[]>, includePaths: string[]): Promise<string[]> {
-		const expandedPaths: string[] = [];
+		variables.forEach(dictionary => {
+			Object.keys(dictionary).forEach(name => {
+				if (!variableNames.has(name)) variableNames.add(name);
+			});
+		});
+		variableNames.forEach(name => {
+			const value = this.resolveVariable(workspaceRoot, name, variables, expandOption, resolvedValues);
+			newVariables[name] = value;
+		});
+		return newVariables;
+	}
+	*/
 
-		for (const p of includePaths) {
-			let pattern = p.trim();
-			pattern = resolveVariablesTwice(pattern, extraParams);
+	resolveVariable(workspaceRoot: string, variableName: string, variables: ParamsDictionary[], expandOption: ExpandPathsOption, resolvedValues?: Map<string, string | string[]>): string[] | string {
+		if (!resolvedValues) resolvedValues = new Map<string, string | string[]>();
+		let currentValue = resolvedValues.get(variableName);
+		if (currentValue !== undefined) return currentValue; // value has been already resolved
 
-			if (pattern.endsWith('/*')) pattern = pattern.substr(0, pattern.length - 1);
-			if (pattern.endsWith('\\*')) pattern = pattern.substr(0, pattern.length - 2);
-			if (!pattern.endsWith('/')) pattern += '/'; // causes to match directories only
+		if (variableName.startsWith('~')) {
+			const home = (process.platform === 'win32') ? process.env.USERPROFILE : process.env.HOME;
+			currentValue = path.join(home || '', variableName.substr(1));
+			currentValue = escapeTemplateText(currentValue);
+		} else if (variableName.startsWith('env:')) {
+			const envNameVariable = variableName.substr('env:'.length);
+			currentValue = process.env[envNameVariable];
+			if (currentValue) currentValue = escapeTemplateText(currentValue);
+		} else {
+			variables.forEach(dictionary => {
+				let newValue = dictionary[variableName];
+				if (newValue === undefined) return; // variable not found at this level
 
-			if (hasMagic(pattern)) {
-				const cwd = path.isAbsolute(pattern) ? '/' : workspaceRoot;
-				const filePaths = await globAsync(pattern, { cwd: cwd });
+				const resolver = (name: string) => {
+					if (name == variableName) {
+						if (currentValue) {
+							return currentValue;
+						} else {
+							throw Error(`Unable to resolve variable '${variableName}'.`);
+						}
+					}
+					let value = resolvedValues!.get(variableName);
+					if (value !== undefined) return value;
+					value = this.resolveVariable(workspaceRoot, name, variables, expandOption, resolvedValues);
+					return value;
+				};
 
-				if (filePaths.length > 0) {
-					filePaths.forEach(filePath => {
-						const trim = filePath.endsWith('/') || filePath.endsWith('\\');
-						if (trim) filePath = filePath.substr(0, filePath.length - 1);
-						if (!expandedPaths.includes(filePath)) expandedPaths.push(filePath);
+				if (isArrayOfString(newValue)) {
+					let newValues: string[] = [];
+					newValue.forEach(value => {
+						const values = expandTemplates(workspaceRoot, value, resolver, true, expandOption);
+						if (isArrayOfString(values)) {
+							newValues = uniq([...newValues, ...values]);
+						} else {
+							newValues = uniq([...newValues, values]);
+						}
 					});
+					newValue = newValues;
+				} else {
+					newValue = expandTemplates(workspaceRoot, newValue, resolver, true, expandOption);
 				}
-			} else {
-				// pattern ends with '/' - trim
-				pattern = pattern.substr(0, pattern.length - 1);
-				if (!expandedPaths.includes(pattern)) expandedPaths.push(pattern);
-			}
+				currentValue = newValue;
+			});
 		}
 
-		return expandedPaths;
+		if (currentValue === undefined) {
+			throw new Error(`Unable to resolve variable '${variableName}'.`);
+		}
+
+		resolvedValues.set(variableName, currentValue);
+		return currentValue;
 	}
 
-	_mutex: AsyncMutex = new AsyncMutex();
+	async getIncludes(workspaceRoot: string, trimmer: IncludesTrimmer, filePaths: string[]): Promise<string[]> {
+		let includes: string[] = [];
+		for (const filePath of filePaths) {
+			const fullFilePath = path.isAbsolute(filePath) ? filePath : path.join(workspaceRoot, filePath);
+			const fullFileDirectory = path.dirname(fullFilePath);
+			const fullFileName = path.basename(fullFilePath);
+			let moreIncludes = await trimmer.getIncludes(fullFileDirectory, fullFileName);
+			moreIncludes = moreIncludes ?? [];
+			includes = uniq([...includes, ...moreIncludes]);
+		}
+		return includes;
+	}
 
-	async execCommand(commandLine: string, rootPath: string, actionName: string, logOutput: (line: string) => void, logError: (line: string) => void): Promise<ExecCmdResult | undefined> {
+	private readonly _mutex: AsyncMutex = new AsyncMutex();
+
+	async execCommand(rootPath: string, commandLine: string, actionName: string, logOutput: Logger, logError: Logger, token: CancelToken, isDebug: boolean): Promise<ExecCmdResult | undefined> {
 		let result: ExecCmdResult | undefined = undefined;
-		let output: string = actionName;
-		let error: string = '';
+		let output: string | undefined;
+		let error: string | undefined;
 
 		try {
-			result = await execCmd(commandLine, { cwd: rootPath });
-
-			if (result) {
-				if (output && result.stdout) output += '\n';
-				output += result.stdout;
-				output = output.trimRight();
-				error += result.stderr;
-				error = error.trimRight();
-			}
+			result = await execCmd(commandLine, { cwd: rootPath }, token);
 		} catch (e) {
-			error = 'Error while executing: ' + commandLine;
 			result = e as ExecCmdResult;
-
-			if (result) {
-				if (output && result.stdout) output += '\n';
-				output += result.stdout;
-				output = output.trimRight();
-			}
-			// NOTE: do not log result.stderr in case of exception
-			// - it is contained in the returned result and should be logged later
 		} finally {
-			await this._mutex.lock();
+			if (result) {
+				output = result.stdout;
+				output = output.trimRight();
+				if (result.error?.message) {
+					error = result.error?.message;
+				} else {
+					error = result.stderr;
+				}
+				error = error?.trimRight();
+			}
+			if (!token.signaled) {
+				await this._mutex.lock();
 
-			try {
-				if (output) logOutput(output);
-				if (error) logError(error);
-			} finally {
-				this._mutex.unlock();
+				try {
+					logOutput(iColor(actionName));
+					if (isDebug) logOutput(dColor(commandLine));
+					if (output) logOutput(output);
+					if (error) logError(eColor(error));
+				} finally {
+					this._mutex.unlock();
+				}
 			}
 		}
 
 		return result;
+	}
+}
+
+/**
+ * @configParams e.g. use to define includePath, defines & forcedInclude variables
+ */
+export async function setSampleBuildConfig(buildStepsPath: string, configName: string, compilerType: CompilerType, configParams?: ParamsDictionary) {
+	let command: string;
+	const bSteps: BuildStep[] = [];
+	const bTypes: BuildType[] = [];
+	const problemMatchers: string[] = [];
+
+	switch (compilerType) {
+		case 'gcc-x64':
+			bTypes.push({ name: 'debug', params: { buildTypeParams: '-O0 -g', defines: ["$${defines}", "$${debugDefines}"] } });
+			bTypes.push({ name: 'release', params: { buildTypeParams: '-O2 -g0' } });
+			command = 'g++ -c -std=c++17 ${buildTypeParams} (-I[$${includePath}]) (-D$${defines}) (-include [$${forcedInclude}]) [${filePath}] -o [${outputFile}]';
+			bSteps.push({ name: 'C++ Compile Sample Step', filePattern: '**/*.cpp', outputFile: "${buildOutput}/${fileDirectory}/${fileName}.o", command: command, trimIncludePaths: true });
+			command = 'g++ [$${filePath}] -o [${buildOutput}/main.exe]';
+			bSteps.push({ name: 'C++ Link Sample Step', fileList: '${buildOutput}/**/*.o', command: command });
+			problemMatchers.push('$gcc');
+			break;
+		case 'clang-x64':
+			bTypes.push({ name: 'debug', params: { buildTypeParams: '-O0 -g', defines: ["$${defines}", "$${debugDefines}"] } });
+			bTypes.push({ name: 'release', params: { buildTypeParams: '-O2 -g0' } });
+			command = 'clang++ -c -std=c++17 ${buildTypeParams} (/I[$${libPaths}]) (-I[$${includePath}]) (-D$${defines}) (-include [$${forcedInclude}]) [${filePath}] -o [${outputFile}]';
+			bSteps.push({ name: 'C++ Compile Sample Step', filePattern: '**/*.cpp', outputFile: "${buildOutput}/${fileDirectory}/${fileName}.o", command: command, trimIncludePaths: true });
+			command = 'clang++ -c [$${filePath}] -o [${buildOutput}/main.bin]';
+			bSteps.push({ name: 'C++ Link Sample Step', fileList: '${buildOutput}/**/*.o', command: command });
+			problemMatchers.push('$gcc');
+			break;
+		case 'msvc-x64':
+			if (!configParams) configParams = {};
+			configParams['scopeCppSDK'] = 'C:/Program Files \\(x86\\)/Microsoft Visual Studio/2019/Enterprise/SDK/ScopeCppSDK';
+			const libPaths = getParamsArray(configParams, 'libPaths');
+			libPaths.push('${scopeCppSDK}/VC/include');
+			libPaths.push('${scopeCppSDK}/SDK/include/ucrt');
+			const linkLibPaths = getParamsArray(configParams, 'linkLibPaths');
+			linkLibPaths.push('${scopeCppSDK}/VC/lib');
+			linkLibPaths.push('${scopeCppSDK}/SDK/lib');
+			bTypes.push({ name: 'debug', params: { buildTypeParams: '/MDd /Od /RTCsu /Zi /Fd[${buildOutput}/main.pdb]', linkTypeParams: '/DEBUG', defines: ["$${defines}", "$${debugDefines}"] } });
+			bTypes.push({ name: 'release', params: { buildTypeParams: '/MD /Ox', linkTypeParams: '' } });
+			command = '[${scopeCppSDK}/VC/bin/cl.exe] ${buildTypeParams} /nologo /EHs /GR /GF /W3 /EHsc /FS /c (/I[$${libPaths}]) (/I[$${includePath}]) (/D\"$${defines}\") (/FI[$${forcedInclude}]) [${filePath}] /Fo[${outputFile}]';
+			bSteps.push({ name: 'C++ Compile Sample Step', filePattern: '**/*.cpp', outputFile: "${buildOutput}/${fileDirectory}/${fileName}.o", command: command });
+			command = '[${scopeCppSDK}/VC/bin/link.exe] /NOLOGO ${linkTypeParams} [$${filePath}] /OUT:[${buildOutput}/main.exe] (/LIBPATH:[$${linkLibPaths}])';
+			bSteps.push({ name: 'C++ Link Sample Step', fileList: '${buildOutput}/**/*.o', command: command });
+			problemMatchers.push('$msCompile');
+			break;
+		default:
+			throw new Error(`Unsupported compiler type: ${compilerType}.`);
+	}
+
+	const bConfig: BuildConfiguration = { name: configName, params: configParams, buildTypes: bTypes, buildSteps: bSteps, problemMatchers: problemMatchers };
+	const dir = path.dirname(buildStepsPath);
+
+	if (!await checkDirectoryExists(dir)) {
+		try {
+			await makeDirectory(dir, { recursive: true });
+		} catch (e) {
+			throw new Error(`Error creating ${dir} folder.\n${e.message}`);
+		}
+	}
+
+	let configs: GlobalConfiguration | undefined;
+
+	if (await checkFileExists(buildStepsPath)) {
+		// file already exists
+		configs = getJsonObject(buildStepsPath);
+		if (!configs) {
+			throw new Error('Unable to parse build configuration file.');
+		}
+		const bConfigs: BuildConfiguration[] = configs.configurations;
+		const i = bConfigs.findIndex(c => c.name == configName);
+
+		if (i != -1) {
+			// configuration in file already exists
+			bConfigs[i] = bConfig; // swap existing configuration
+		} else {
+			bConfigs.push(bConfig); // add new configuration
+		}
+	} else {
+		// file does not yet exist
+		const bConfigs: BuildConfiguration[] = [];
+		configs = { version: 1, configurations: bConfigs };
+		bConfigs.push(bConfig);
+	}
+
+	if (!configs.params) configs.params = {};
+	const gParams = configs.params;
+	gParams['buildDir'] = 'build';
+	gParams['buildOutput'] = '${buildDir}/${configName}/${buildTypeName}';
+	gParams['defines'] = ["$${defines}", "UNICODE", "_UNICODE"];
+	gParams['debugDefines'] = ["_DEBUG", "DEBUG"];
+	gParams['includePath'] = ["$${includePath}", "${workspaceFolder}/**"];
+
+	const text = JSON.stringify(configs, null, '\t');
+
+	try {
+		fs.writeFileSync(buildStepsPath, text);
+	} catch (e) {
+		throw new Error(`Error writing ${buildStepsPath} file.\n${e.message}`);
+	}
+}
+
+/** Gets array of values, creates value if it does not exist or converts from string to string[] if required */
+function getParamsArray(params: ParamsDictionary, name: string): string[] {
+	const values = params[name];
+	let array: string[];
+	if (values) {
+		if (isArrayOfString(values)) {
+			return values;
+		} else {
+			array = [values];
+			params[name] = array;
+			return array;
+		}
+	} else {
+		array = [];
+		params[name] = array;
+		return array;
 	}
 }

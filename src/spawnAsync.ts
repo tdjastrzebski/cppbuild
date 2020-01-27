@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) 2019 Tomasz Jastrzębski. All rights reserved.
+ *  Copyright (c) 2019-2020 Tomasz Jastrzębski. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -82,7 +82,7 @@ export function spawnAsync(process: string, args?: readonly string[], cwd?: stri
 			if (line) stderrLines.push(line);
 
 			if (code !== 0) {
-				error = error || new Error(`${process} exited with error code ${code}.`);
+				error = error ?? new Error(`${process} exited with error code ${code}.`);
 				reject({ message: error.message, code: code, stdout: stdoutLines, stderr: stderrLines, stack: error.stack });
 			} else {
 				resolve({ stdout: stdoutLines, stderr: stderrLines });

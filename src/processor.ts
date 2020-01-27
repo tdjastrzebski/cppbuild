@@ -1,17 +1,20 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) 2019 Tomasz Jastrzębski. All rights reserved.
+ *  Copyright (c) 2019-2020 Tomasz Jastrzębski. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
 'use strict';
 
-import { Configuration, ConfigurationJson, resolveVariables, checkDirectoryExists, checkFileExists, isArrayOfString } from './cpptools';
-import { replaceAt, makeDirectory, getJsonObject, listObject, resolveVariablesTwice } from './utils';
-import { CppParams, IStringDictionary, BuildConfigurations, BuildInfo } from './interfaces';
+import { Configuration, ConfigurationJson, checkDirectoryExists, checkFileExists, isArrayOfString } from './cpptools';
+import { replaceAt, makeDirectory, getJsonObject, listObject, matchRecursive, replaceRecursive, unescapeTemplateText, escapeTemplateText, expandGlob, IsMochaRunning } from './utils';
+import { CppParams, GlobalConfiguration, BuildInfo, ExpandPathsOption, VariableResolver } from './interfaces';
 import { BuildStepsFileSchema, PropertiesFileSchema } from './consts';
-import * as path from 'path';
+import { hasMagic } from "glob";
 import { AsyncMutex } from "@esfx/async-mutex";
+import { deepClone } from './vscode';
+import * as path from 'path';
 import ajv from 'ajv';
+import uniq from 'lodash.uniq';
 
 export function getCppConfigParams(configurationJson: ConfigurationJson, configName: string): CppParams | undefined {
 	const configuration: Configuration | undefined = configurationJson!.configurations.filter((c) => c.name == configName)[0];
@@ -37,106 +40,256 @@ export async function createOutputDirectory(rootPath: string, outputDirectoryPat
 	}
 }
 
-function getTemplateReplacements(template: string, extraParams: IStringDictionary<string | string[]>): string[] | undefined {
-	const paramString: RegExpMatchArray | null = template.match(/\$\$\{.*?\}/);
-	const replacements: string[] = [];
-
-	if (!paramString || paramString.length != 1) {
-		// no params or multiply params found within ()
-		return undefined;
-	}
-
-	const paramStr: string = paramString[0];
-	const paramStrIdx: number | undefined = paramString.index;
-	const paramName: string = removePrefixAndSuffix(paramStr, '$${', '}');
-	const values: string | string[] = extraParams[paramName];
-
-	if (!values) {
-		throw new Error(`Variable '${paramStr}' is undefined.`);
-	}
-
-	if (isArrayOfString(values)) {
-		// multi-value
-		values.forEach(element => {
-			replacements.push(replaceAt(template, paramStrIdx!, paramStr.length, element));
-		});
+function joint(replacements: string | string[], format?: (text: string) => string): string {
+	if (isArrayOfString(replacements)) {
+		if (format) {
+			replacements.forEach((value: string, index: number) => {
+				replacements[index] = format(value);
+			});
+		}
+		const replacement = replacements.join(' ');
+		return replacement;
 	} else {
-		// single value
-		replacements.push(replaceAt(template, paramStrIdx!, paramStr.length, values));
+		const replacement = format ? format(replacements) : replacements;
+		return replacement;
 	}
-
-	return replacements;
 }
 
+/** builds interim list of values */
+function ss(values: string | string[], format?: (text: string) => string): string {
+	if (format) {
+		if (isArrayOfString(values)) {
+			const temp: string[] = [];
+			values.forEach(value => {
+				temp.push(format(value));
+			});
+			values = temp;
+		} else {
+			values = format(values);
+		}
+	}
+
+	values = '$${' + variableListJoin(values) + '}';
+	return values;
+}
+
+/** expands template string to string by applying params and unescaping */
+export function expandTemplate(workspaceRoot: string, template: string, variableResolver: VariableResolver): string {
+	const replacements = expandTemplates(workspaceRoot, template, variableResolver, false, ExpandPathsOption.expandAll);
+	let replacement = joint(replacements);
+	replacement = unescapeTemplateText(replacement);
+	return replacement;
+}
+
+export function expandTemplates(workspaceRoot: string, template: string, variableResolver: VariableResolver, inSubtemplate: boolean, expandOption: ExpandPathsOption): string | string[] {
+	// 1. expand sub-templates: ()
+	template = replaceRecursive(template, '\\(', '\\)', (match) => {
+		let t = template;
+		const replacements = expandTemplates(workspaceRoot, match.innerText, variableResolver, true, expandOption);
+		const replacement = joint(replacements);
+		return replacement;
+	}, 'g', '\\');
+
+	// 2. expand path sub-templates: []
+	template = replaceRecursive(template, '\\[', '\\]', (match) => {
+		let t = template;
+		const replacements = expandTemplates(workspaceRoot, match.innerText, variableResolver, true, expandOption);
+
+		if (inSubtemplate && isArrayOfString(replacements)) {
+			// return multi-value param
+			const replacement = ss(replacements, formatPath);
+			return replacement;
+		} else {
+			// return multi-value string
+			const replacement = joint(replacements, formatPath);
+			return replacement;
+		}
+	}, 'g', '\\');
+
+	// 3. expand single variables: ${name}
+	template = replaceRecursive(template, '\\$\\$?{', '}', (match) => {
+		let t = template;
+		let replacement = match.outerText;
+		if (match.left != '${') return replacement; // do not replace
+		let replacements = variableResolver(match.innerText, expandOption);
+		replacement = joint(replacements);
+		replacements = expandTemplates(workspaceRoot, replacement, variableResolver, inSubtemplate, expandOption); // do I need to expandTemplates again?
+
+		if (inSubtemplate && isArrayOfString(replacements)) {
+			// return multi-value variable
+			replacement = ss(replacements);
+			return replacement;
+		} else {
+			// return multi-value string
+			replacement = joint(replacements);
+			return replacement;
+		}
+	}, 'g', '\\');
+
+	// 4. expand multi-value variables: $${name}
+	let paramMatches = matchRecursive(template, '\\$\\$?{', '}', 'g', '\\');
+	paramMatches = paramMatches.filter(m => m.left == '$${');
+
+	if (paramMatches.length == 0) return template; // template is not a template - do not expand
+
+	if (inSubtemplate) {
+		let t = template;
+		if (paramMatches.length > 1) {
+			// more than one multi-value variables found in sub-template
+			throw new Error(`Subtemplate '${template}' contains more than one multi-value variable.`);
+		}
+
+		const paramMatch = paramMatches[0];
+		const values = getMultivalues(workspaceRoot, paramMatch.innerText, variableResolver, expandOption);
+		const replacements: string[] = [];
+
+		values.forEach(replacement => {
+			replacement = replaceAt(template, paramMatch.index, paramMatch.outerText.length, replacement);
+			const xtReplacements = expandTemplates(workspaceRoot, replacement, variableResolver, inSubtemplate, expandOption);
+			replacement = joint(xtReplacements);
+			replacements.push(replacement);
+		});
+		return replacements; // return array
+	} else {
+		// NOT inSubtemplate
+		let t = template;
+		paramMatches.forEach(paramMatch => {
+			const values = getMultivalues(workspaceRoot, paramMatch.innerText, variableResolver, expandOption);
+			const replacements: string[] = [];
+
+			values.forEach(replacement => {
+				const xtReplacements = expandTemplates(workspaceRoot, replacement, variableResolver, inSubtemplate, expandOption);
+				replacement = joint(xtReplacements);
+				replacements.push(replacement);
+			});
+			const replacement = joint(replacements);
+			template = replaceAt(template, paramMatch.index, paramMatch.outerText.length, replacement);
+		});
+		return template;
+	}
+}
+
+const variableName = /^[a-zA-Z0-9_-]+$/; // actual variable name follows more strict pattern - see schema.json file
+
+// FIXME: detect circular references
+/** resolves multi-value $${} variable to array of values */
+export function getMultivalues(workspaceRoot: string, variableText: string, variableResolver: VariableResolver, expandOption: ExpandPathsOption): string[] {
+	let values: string[];
+
+	if (variableName.test(variableText)) {
+		// variableText appears to be a variable name
+		const paramValue = variableResolver(variableText, expandOption);
+		if (!paramValue) {
+			throw new Error(`Variable '${variableText}' is undefined.`);
+		} else {
+			if (!isArrayOfString(paramValue)) {
+				values = [paramValue];
+			} else {
+				values = deepClone(paramValue);
+			}
+		}
+	} else if (variableList.test(variableText)) {
+		// treat variableText as a list of values
+		values = variableListParse(variableText);
+	} else {
+		throw new Error(`Unable to resolve variable '${variableText}'.`);
+	}
+
+	const newValues = expandMultivalues(workspaceRoot, values, variableResolver, expandOption);
+	return newValues;
+}
+
+export function expandMultivalues(workspaceRoot: string, values: string[] | string, variableResolver: VariableResolver, expandOption: ExpandPathsOption): string[] {
+	let newValues: string[] = [];
+	if (!isArrayOfString(values)) values = values ? [values] : [];
+
+	values.forEach(value => {
+		const xtReplacements = expandTemplates(workspaceRoot, value, variableResolver, true, expandOption);
+
+		if (isArrayOfString(xtReplacements)) {
+			newValues = uniq([...newValues, ...xtReplacements]);
+		} else {
+			const pattern = unescapeTemplateText(xtReplacements);
+			if (hasMagic(pattern)) {
+				// value is glob expression
+				const paths = expandGlob(workspaceRoot, pattern, expandOption);
+				newValues = uniq([...newValues, ...paths]);
+			} else {
+				newValues.push(xtReplacements);
+			}
+		}
+	});
+
+	return newValues;
+}
+
+export function variableListJoin(list: string[] | string): string {
+	const values: string[] = [];
+	if (!isArrayOfString(list)) list = list ? [list] : [];
+	list.forEach(value => {
+		//let quote: boolean = false;
+		if (value.indexOf('\'') != -1 || value.indexOf('\\') != -1) {
+			// escape single quotes
+			value = value.replace(/\'/g, '\\\'');
+			//quote = true; // quote if variable contains single quote (') or backslash (\)
+		}
+		//if (quote || value.indexOf(',') != -1 || value.startsWith(' ') || value.endsWith(' ')) {
+		// always quote value
+		value = '\'' + value + '\'';
+		//}
+		values.push(value);
+	});
+	return values.join(',');
+}
+
+// expression to validate variable list
+const variableList = /^\s*(?:'[^'\\]*(?:\\[\S\s][^'\\]*)*'|[^,'\s\\]*(?:\s+[^,'\s\\]+)*)\s*(?:,\s*(?:'[^'\\]*(?:\\[\S\s][^'\\]*)*'|[^,'\s\\]*(?:\s+[^,'\s\\]+)*)\s*)*$/;
+// expression to match variable list values
+const listValues = /(?!\s*$)\s*(?:'([^'\\]*(?:\\[\S\s][^'\\]*)*)'|([^,'\s\\]*(?:\s+[^,'\s\\]+)*))\s*(?:,|$)/g;
+// for discussion refer to: https://stackoverflow.com/questions/8493195/how-can-i-parse-a-csv-string-with-javascript-which-contains-comma-in-data
+
+export function variableListParse(list: string): string[] {
+	if (!variableList.test(list)) {
+		throw new Error(`Variable list is malformed: ${list}.`);
+	}
+	const values: string[] = [];
+	const matches = list.match(listValues);
+	matches?.forEach(value => {
+		value = value.trim();
+		value = value.endsWith(',') ? value.substr(0, value.length - 1) : value; // remove ending ','
+		value = value.trim();
+		value = value.startsWith('\'') && value.endsWith('\'') ? value.substr(1, value.length - 2) : value; // remove single quotes
+		value = value.replace(/\\'/g, '\''); // de-escape single quotes
+		values.push(value);
+	});
+	return values;
+}
+
+/** formats *escaped* string as path, adding quotes as needed */
 function formatPath(pathString: string): string {
-	pathString = path.normalize(pathString);
 	pathString = pathString.trim();
-	pathString = pathString.replace(/\\/g, '/');
+	pathString = unescapeTemplateText(pathString);
+	pathString = path.normalize(pathString);
 
 	if (pathString.indexOf(' ') != -1) {
-		// TODO: check for single quotes as well?
-		if (pathString.substr(0, 1) != '\"' && pathString.substr(pathString.length - 1, 1) != '\"') {
+		if (pathString.startsWith('"') && pathString.endsWith('"')) {
+			// path already double-quoted
+		} else if (pathString.startsWith('\'') && pathString.endsWith('\'')) {
+			if (process.platform !== 'win32') {
+				// path already single-quoted - non-Windows
+			} else {
+				// change single quotes to double quotes required by Win32
+				pathString = pathString.substr(1, pathString.length - 2);
+				pathString = '"' + pathString + '"';
+			}
+		} else {
 			// add double quotes
-			return "\"" + pathString + "\"";
+			pathString = '"' + pathString + '"';
 		}
 	}
 
+	pathString = escapeTemplateText(pathString);
 	return pathString;
-}
-
-function removePrefixAndSuffix(text: string, prefix: string, suffix: string): string {
-	text = text.substr(prefix.length, text.length - prefix.length - suffix.length);
-	return text;
-}
-
-export function buildCommand(template: string, extraParams: IStringDictionary<string | string[]>): string {
-	// 1. expand sub-templates containing multi-value variables: ($${name})
-	let command: string = template.replace(/\(.*?\)/g, (match) => {
-		const subTemplate = removePrefixAndSuffix(match, '(', ')');
-		const replacements = getTemplateReplacements(subTemplate, extraParams);
-
-		if (!replacements) {
-			throw new Error(`'${match}' sub-template does not contain exactly one multi-value variable.`);
-		}
-
-		return replacements.join(' ');
-	});
-
-	// 2. expand sub-templates containing multi-value variables: [$${name}]
-	command = command.replace(/\[.*?\]/g, (match) => {
-		const subTemplate = removePrefixAndSuffix(match, '[', ']');
-		const replacements = getTemplateReplacements(subTemplate, extraParams);
-		if (!replacements) return match;
-		replacements.forEach((value: string, index: number) => {
-			replacements[index] = formatPath(value);
-		});
-		return replacements.join(' ');
-	});
-
-	// 3. expand multi-value variables $${name}
-	command = command.replace(/\$\$\{.*?\}/g, (match) => {
-		const paramName = removePrefixAndSuffix(match, '$${', '}');
-		const values: string | string[] = extraParams[paramName];
-
-		if (isArrayOfString(values)) {
-			// multi-value
-			return values.join(' ');
-		} else {
-			// single value
-			return values;
-		}
-	});
-
-	// 4. resolve variable names: ${name}
-	command = resolveVariablesTwice(command, extraParams);
-
-	// 5. replace [path] with OS specific path separators and add quotes if path contains whitespace
-	command = command.replace(/\[.*?\]/g, (match) => {
-		const subTemplate = removePrefixAndSuffix(match, '[', ']');
-		return formatPath(subTemplate);
-	});
-
-	return command;
 }
 
 /**
@@ -151,7 +304,7 @@ export async function getBuildInfos(buildStepsPath: string, propertiesPath?: str
 		throw new Error(`'${buildStepsPath}' file not found.`);
 	}
 
-	let configurationJson: ConfigurationJson | undefined;
+	let propertiesConfigs: ConfigurationJson | undefined;
 
 	if (propertiesPath) {
 		if (false === await checkFileExists(propertiesPath)) {
@@ -164,18 +317,18 @@ export async function getBuildInfos(buildStepsPath: string, propertiesPath?: str
 			throw new Error(`'${propertiesPath}' file schema validation error(s).\n${(<string[]>errors).join('\n\n')}`);
 		}
 
-		configurationJson = getJsonObject(propertiesPath);
+		propertiesConfigs = getJsonObject(propertiesPath);
 
-		if (!configurationJson) {
+		if (!propertiesConfigs) {
 			throw new Error(`'${propertiesPath}' file read problem.`);
 		}
 
-		if (configurationJson.version != 4) {
-			throw new Error(`Unsupported '${propertiesPath}' config file version`);
+		if (propertiesConfigs.version != 4) {
+			throw new Error(`Unsupported '${propertiesPath}' config file version.`);
 		}
 	}
 
-	const buildConfigs: BuildConfigurations | undefined = getJsonObject(buildStepsPath);
+	const buildConfigs: GlobalConfiguration | undefined = getJsonObject(buildStepsPath);
 
 	if (!buildConfigs) {
 		throw new Error(`'${buildStepsPath}' file read problem.`);
@@ -188,8 +341,8 @@ export async function getBuildInfos(buildStepsPath: string, propertiesPath?: str
 
 	// find matching configs in config and build files
 	buildConfigs.configurations.forEach(c => {
-		if (configurationJson) {
-			const matchingConfigs = configurationJson.configurations.filter(b => b.name == c.name);
+		if (propertiesConfigs) {
+			const matchingConfigs = propertiesConfigs.configurations.filter(b => b.name == c.name);
 
 			if (matchingConfigs.length == 0) {
 				return; // no match found
@@ -222,7 +375,8 @@ export function validateJsonFile(jsonFile: string, schemaFile: string): string[]
 	const a = new ajv({ allErrors: true, schemaId: "auto" }); // options can be passed, e.g. {allErrors: true}
 	const meta4: any = require('ajv/lib/refs/json-schema-draft-04.json');
 	a.addMetaSchema(meta4);
-	const schema: any = require(path.join('../', schemaFile));
+	const pathToRoot = IsMochaRunning ? '../' : '../../';
+	const schema: any = require(path.join(pathToRoot, schemaFile));
 	const validate = a.compile(schema);
 	const data: any = getJsonObject(jsonFile);
 	const valid = validate(data);

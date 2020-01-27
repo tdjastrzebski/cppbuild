@@ -1,55 +1,74 @@
 #!/usr/bin/env node
 
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) 2019 Tomasz Jastrzębski. All rights reserved.
+ *  Copyright (c) 2019-2020 Tomasz Jastrzębski. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
 'use strict';
 
-import { IStringDictionary } from './interfaces';
-import { getLatestVersion, sleep, elapsedMills, info, warn, err, reg, high } from './utils';
+import { getLatestVersion, sleep, elapsedMills, iColor, wColor, eColor, rColor, hColor, kColor, dColor } from './utils';
 import { ToolName, ToolVersion, VscodeFolder, BuildStepsFile, PropertiesFile } from './consts';
+import { BuilderOptions, CompilerType, IStringDictionary } from './interfaces';
+import { Builder, setSampleBuildConfig } from './builder';
 import { CancelToken } from "@esfx/async-canceltoken";
-import { Builder } from './builder';
 import { isatty } from 'tty';
 import cmd from 'commander';
 import * as semver from 'semver';
 import * as path from 'path';
 
-const Description = info(`Multi-step C/C++ incremental build tool version ${ToolVersion}\nhttps://github.com/tdjastrzebski/cppbuild`);
+const Description = iColor(`Multi-step C/C++ incremental build tool version ${ToolVersion}\nhttps://github.com/tdjastrzebski/cppbuild`);
 const ProcessCwd: string = process.cwd();
 const Program = new cmd.Command();
 const DefaultMaxTask = 4;
 
-Program.name(ToolName)
+Program
+	.name(ToolName)
 	.version(ToolVersion, '--version', 'output the current version')
 	.description(Description)
-	.usage(`<configuration name> [build type] [options]`)
+	.usage('<configuration name> [build type] [options]')
+	.exitOverride();
+Program
 	.arguments('<configuration name> [build type]')
 	.option('-w, --workspace-root [path]', 'VS Code workspace root path (default: the current folder)')
 	.option('-b, --build-file <file>', `name of the file containing build steps definitions (default: '${VscodeFolder}/${BuildStepsFile}')`)
 	.option('-p, --properties-file [file]', `name of the file containing C/C++ configurations (default: '${VscodeFolder}/${PropertiesFile}')`)
 	.option('-v, --variable <name=value>', 'variable name and value - can be specified multiple times', parseVariables)
 	.option('-j, --max-tasks <number>', `maximum number of tasks run in parallel (default: ${DefaultMaxTask})`)
-	.option('-f, --force-rebuild', `disable incremental build`)
+	.option('-f, --force-rebuild', 'disable incremental build')
+	.option('-d, --debug', 'display extra debug info')
+	.option('-t, --trim-include-paths', 'removes unnecessary include paths')
+	.option('-i, --initialize <path>', `create sample build configuration, usage: ${ToolName} <configuration name> <gcc-x64 | clang-x64 | msvc-x64> -i <path>`)
+	.option('-c, --continue-on-error', 'causes build to continue on execution error')
 	.action(doTask(build));
 
 if (process.argv.length <= 2) {
 	// no arguments passed
 	Program.help();
+	process.exit(1);
 } else {
-	Program.parse(process.argv);
+	try {
+		Program.parse(process.argv);
+	} catch (e) {
+		if (e.code != 'commander.helpDisplayed') {
+			console.error(`Use: ${ToolName} --help for a list of available options.`);
+		}
+		process.exit(e.exitCode);
+	}
 }
 
 function trace(message: string) {
-	//console.log(magentaBright(message));
+	//console.log(dColor(message));
+}
+
+async function initialize(path: string | undefined) {
+	trace('initialize');
 }
 
 function doTask(task: (...args: any) => Promise<void>) {
 	return async (...args: any[]) => {
 		trace('doTask');
-		const GetLatestTimeout = 2500;
+		const GetLatestTimeout = 2500; // ms
 		const getLatest = CancelToken.source();
 		const waitMore = CancelToken.source();
 		let exitCode: number = 0;
@@ -80,7 +99,7 @@ function doTask(task: (...args: any) => Promise<void>) {
 			exitCode = 1;
 			trace('catch build error');
 			const error = e as Error;
-			if (error) console.error(err(error.message));
+			if (error) console.error(eColor(error.message));
 		} finally {
 			const elapsed = elapsedMills(start);
 			trace('finally ' + elapsed);
@@ -94,8 +113,8 @@ function doTask(task: (...args: any) => Promise<void>) {
 			getLatest.cancel(); // wait no more
 
 			if (latestVersion && semver.gt(latestVersion, ToolVersion)) {
-				console.log(warn(`\nThe latest version of ${ToolName} is ${latestVersion} and you have ${ToolVersion}.`));
-				console.log(reg(`Update it now: npm install -g ${ToolName}`));
+				console.log(wColor(`\nThe latest version of ${ToolName} is ${latestVersion} and you have ${ToolVersion}.`));
+				console.log(rColor(`Update it now: npm install -g ${ToolName}`));
 			}
 
 			process.exit(exitCode);
@@ -108,8 +127,7 @@ async function build(configName: string | undefined, buildTypeName: string | und
 	let workspaceRoot: string;
 	let buildFile: string | undefined;
 	let propertiesFile: string | undefined;
-	let maxTask: number = DefaultMaxTask;
-	let forceRebuild: boolean = false;
+	const options: BuilderOptions = { maxTasks: DefaultMaxTask, forceRebuild: false, debug: false, trimIncludePaths: false, continueOnError: false };
 
 	if (Program.workspaceRoot) {
 		if (Program.workspaceRoot === true) {
@@ -148,32 +166,68 @@ async function build(configName: string | undefined, buildTypeName: string | und
 	}
 
 	if (Program.maxTasks) {
-		const _maxTask = parseInt(Program.maxTasks);
-		if (!isNaN(_maxTask)) {
-			maxTask = _maxTask;
+		const maxTasks = parseInt(Program.maxTasks);
+		if (!isNaN(maxTasks)) {
+			options.maxTasks = maxTasks;
 		} else {
-			console.error(warn(`Invalid maximum number of concurrent tasks - option ignored.`));
+			console.error(wColor(`Invalid maximum number of concurrent tasks - option ignored.`));
 		}
 	}
 
-	if (Program.forceRebuild === true) forceRebuild = true;
+	if (Program.forceRebuild === true) options.forceRebuild = true;
+	if (Program.debug === true) options.debug = true;
+	if (Program.trimIncludePaths === true) options.trimIncludePaths = true;
+	if (Program.continueOnError === true) options.continueOnError = true;
 
 	const cliExtraParams = Program.variable as IStringDictionary<string>;
 
 	console.log(Description);
 	console.log();
-	console.log(reg('workspace root: ') + high(workspaceRoot));
-	console.log(reg('build steps file: ') + high(buildFile));
-	console.log(reg('C/C++ properties file: ') + high(propertiesFile || 'none'));
-	console.log(reg('config name: ') + high(configName || 'none'));
-	console.log(reg('build type: ') + high(buildTypeName || 'none'));
-	console.log();
 
-	const builder = new Builder();
-	const start = process.hrtime();
-	await builder.runBuild(workspaceRoot, propertiesFile, buildFile, configName!, buildTypeName!, cliExtraParams, maxTask, forceRebuild, logBuildOutput, logBuildError);
-	const timeElapsed = elapsedMills(start) / 1000;
-	console.log(info(`Build steps completed in ${timeElapsed.toFixed(2)}s`));
+	if (!Program.initialize) {
+		// run build steps
+		console.log(rColor('workspace root: ') + hColor(workspaceRoot));
+		console.log(rColor('build steps file: ') + hColor(buildFile));
+		console.log(rColor('C/C++ properties file: ') + hColor(propertiesFile || 'none'));
+		console.log(rColor('config name: ') + hColor(configName || 'none'));
+		console.log(rColor('build type: ') + hColor(buildTypeName || 'none'));
+		console.log();
+
+		const builder = new Builder();
+		const start = process.hrtime();
+		const result = await builder.runBuild(workspaceRoot, propertiesFile, buildFile, configName!, buildTypeName!, cliExtraParams, options, logBuildOutput, logBuildError);
+		const filesProcessed = result[0];
+		const filesSkipped = result[1];
+		const errorsEncountered = result[2];
+		const timeElapsed = elapsedMills(start) / 1000;
+		const errorsColor = errorsEncountered > 0 ? eColor : kColor;
+		console.log(iColor(`Build steps completed in ${timeElapsed.toFixed(2)}s, ${filesProcessed} file(s) processed, ${filesSkipped} file(s) skipped, ` + errorsColor(`${errorsEncountered} error(s) encountered.`)));
+	} else {
+		// create sample config file
+		const filePath = Program.initialize;
+		const compilerType = buildTypeName;
+		console.log(rColor('config name: ') + hColor(configName ?? 'none'));
+		console.log(rColor('compiler type: ') + hColor(compilerType ?? 'none'));
+		console.log(rColor('file path: ') + hColor(filePath ?? 'none'));
+		console.log();
+
+		if (configName && compilerType) {
+			const stringToEnumValue = <ET, T>(enumObj: ET, str: string): T => (enumObj as any)[Object.keys(enumObj).filter(k => (enumObj as any)[k] === str)[0]];
+			const cType = stringToEnumValue<typeof CompilerType, CompilerType>(CompilerType, compilerType); // convert string enum name to enum value
+			if (cType) {
+				await setSampleBuildConfig(filePath, configName, cType);
+				console.log(kColor('success'));
+			} else {
+				console.log(eColor(`Unsupported compiler type: ${compilerType}.`));
+				Program.outputHelp();
+				process.exit(1);
+			}
+		} else {
+			console.log(eColor('failure'));
+			Program.outputHelp();
+			process.exit(1);
+		}
+	}
 }
 
 function logBuildOutput(line: string) {
@@ -188,7 +242,7 @@ function logBuildError(line: string) {
 function parseVariables(variable: string, params: IStringDictionary<string> = {}): IStringDictionary<string> {
 	const i = variable.indexOf('=');
 	if (i <= 0) {
-		console.error(warn('invalid variable name/value: ' + variable));
+		console.error(wColor('invalid variable name/value: ' + variable));
 		return params;
 	}
 	const name = variable.substr(0, i).trim();

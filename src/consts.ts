@@ -1,11 +1,14 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) 2019 Tomasz Jastrzębski. All rights reserved.
+ *  Copyright (c) 2019-2020 Tomasz Jastrzębski. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
 'use strict';
 
-const pkg = require('../package.json');
+import { IsMochaRunning } from "./utils";
+import path from 'path';
+const pathToRoot = IsMochaRunning ? '../' : '../../';
+const pkg = require(path.join(pathToRoot, 'package.json'));
 
 export const ToolVersion: string = pkg.version;
 export const ToolName: string = pkg.name;

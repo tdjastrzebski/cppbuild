@@ -1,50 +1,77 @@
 'use strict';
 
 import glob from 'glob';
+import { sync as globSync } from 'glob';
 import chalk from 'chalk';
+import ColorSupport from 'chalk';
 import * as fs from 'fs';
+import * as path from 'path';
+import * as readline from 'readline';
 import * as cp from 'child_process';
 import * as jsonc from 'jsonc-parser';
 import { SpawnAsyncResult, spawnAsync, SpawnAsyncError } from './spawnAsync';
-import { IStringDictionary } from './interfaces';
-import { resolveVariables } from './cpptools';
-import { CancelToken, CancelSubscription, CancelError } from "@esfx/async-canceltoken";
-
+import { ParamsDictionary, ExpandPathsOption } from './interfaces';
+import { CancelToken, CancelSubscription } from "@esfx/async-canceltoken";
+import { isArrayOfString } from './cpptools';
+const detectMocha = require('detect-mocha');
+const XRegExp = require('xregexp');
+export const IsMochaRunning = process.argv[1].endsWith(path.normalize('/node_modules/mocha/bin/mocha')) || detectMocha();
 const ctx = new chalk.Instance({ level: 3 });
 
-export function info(text: string) {
+function color(text: string, red: number, green: number, blue: number, color: (...text: unknown[]) => string): string {
+	if (ColorSupport.level > 1) {
+		return ctx.rgb(red, green, blue)(text);
+	} else {
+		return color(text);
+	}
+}
+
+/** info */
+export function iColor(text: string) {
 	return ctx.rgb(86, 156, 214)(text);
 }
 
-export function warn(text: string) {
-	return ctx.rgb(205, 151, 49)(text); // 220, 220, 170
+/** warning */
+export function wColor(text: string) {
+	return ctx.rgb(205, 151, 49)(text);
 }
 
-export function err(text: string): string {
-	return ctx.rgb(224, 110, 100)(text); // 224, 135, 113
+/** error */
+export function eColor(text: string): string {
+	return ctx.rgb(224, 110, 100)(text);
 }
 
-export function reg(text: string): string {
+/** regular */
+export function rColor(text: string): string {
 	return ctx.rgb(204, 204, 204)(text);
 }
 
-export function high(text: string): string {
-	return ctx.rgb(181, 206, 169)(text); // 114, 157, 179
+/** highlight */
+export function hColor(text: string): string {
+	return ctx.rgb(181, 206, 169)(text);
 }
 
-export function testColors() {
-	console.log(chalk.rgb(224, 135, 113)('test 1'));
-	console.log(chalk.rgb(205, 151, 49)('test 2'));
-	console.log(chalk.rgb(220, 220, 170)('test 3'));
-	console.log(chalk.rgb(206, 145, 120)('test 4'));
-	console.log(chalk.rgb(156, 220, 254)('test 5'));
-	console.log(chalk.rgb(78, 201, 176)('test 6'));
-	console.log(chalk.rgb(197, 134, 192)('test 7'));
-	console.log(chalk.rgb(204, 204, 204)('test 8'));
-	console.log(chalk.rgb(224, 224, 224)('test 9'));
-	console.log(chalk.rgb(86, 156, 214)('test 10'));
-	console.log(chalk.rgb(114, 157, 179)('test 11'));
-	console.log(chalk.rgb(181, 206, 169)('test 12'));
+/** debug */
+export function dColor(text: string): string {
+	return ctx.rgb(197, 134, 192)(text);
+}
+
+/** OK */
+export function kColor(text: string): string {
+	return ctx.rgb(78, 220, 146)(text);
+}
+
+export async function readLines(filePath: string, onLine: (line: string) => void): Promise<void> {
+	const readInterface = readline.createInterface(fs.createReadStream(filePath));
+
+	return new Promise<void>((resolve, reject) => {
+		readInterface.on('close', () => {
+			resolve();
+		});
+		readInterface.on('line', line => {
+			onLine(line);
+		});
+	});
 }
 
 export function elapsedMills(timeSince: [number, number]) {
@@ -53,7 +80,7 @@ export function elapsedMills(timeSince: [number, number]) {
 	return elapsed;
 }
 
-export function sleep(millis: number, token = CancelToken.none): Promise<void> {
+export function sleep(mills: number, token = CancelToken.none): Promise<void> {
 	return new Promise((resolve) => {
 		let subscription: CancelSubscription | null = null;
 		if (token.signaled) resolve();
@@ -61,7 +88,7 @@ export function sleep(millis: number, token = CancelToken.none): Promise<void> {
 		const timeout = setTimeout(() => {
 			if (subscription) subscription.unsubscribe();
 			resolve();
-		}, millis);
+		}, mills);
 
 		subscription = token.subscribe(() => {
 			clearTimeout(timeout);
@@ -75,11 +102,17 @@ export async function getLatestVersion(name: string, token = CancelToken.none): 
 	return result.stdout.split(/[\r\n]/).filter(line => !!line)[0];
 }
 
-export function resolveVariablesTwice(input: string, params: { [key: string]: string | string[] }): string {
-	let result: string = resolveVariables(input, params);
-	result = resolveVariables(result, params);
-	return result;
+/*
+export function resolveVariables(input: string, params: VariableResolver): string {
+	const results = expandTemplates('', input, params, false, ExpandPathsOption.noExpand);
+
+	if (isArrayOfString(results)) {
+		throw new Error(`Template '${input}' resolves to multiple values.`);
+	} else {
+		return results;
+	}
 }
+*/
 
 /**
  * Function creates object from json file.
@@ -113,6 +146,64 @@ export function makeDirectory(dirPath: string, options: fs.MakeDirectoryOptions 
 			}
 		});
 	});
+}
+
+/* this does not work in Node.js 10, version 12+ required
+export function removeDirectory(dirPath: string, options: fs.RmDirAsyncOptions = { recursive: true }): Promise<void> {
+	return new Promise((resolve, reject) => {
+		fs.rmdir(dirPath, options, (err) => {
+			if (err) {
+				reject(err);
+			} else {
+				resolve();
+			}
+		});
+	});
+}
+*/
+
+interface XRegExpPart { start: number; end: number; name: string; value: string; }
+export interface XRegExpMatch { index: number; outerText: string; innerText: string; left: string; right: string; }
+
+export function replaceRecursive(text: string, left: string, right: string, replacer: (match: XRegExpMatch) => string, flags: string = 'g', escapeChar?: string): string {
+	const matches: XRegExpMatch[] = matchRecursive(text, left, right, flags, escapeChar);
+	let offset: number = 0;
+
+	for (const match of matches) {
+		const replacement = replacer(match);
+		if (replacement == match.outerText) continue;
+		text = replaceAt(text, match.index + offset, match.outerText.length, replacement);
+		offset += replacement.length - match.outerText.length;
+	}
+	return text;
+}
+
+export function matchRecursive(text: string, left: string, right: string, flags: string = 'g', escapeChar?: string): XRegExpMatch[] {
+	// see: https://github.com/slevithan/xregexp#xregexpmatchrecursive
+	// see: http://xregexp.com/api/#matchRecursive
+	const parts: XRegExpPart[] = XRegExp.matchRecursive(text, left, right, flags, { valueNames: [null, 'left', 'match', 'right'], escapeChar: escapeChar });
+	const matches: XRegExpMatch[] = [];
+	let leftPart: XRegExpPart;
+	let matchPart: XRegExpPart;
+
+	for (const part of parts) {
+		// note: assumption is made that left, match and right parts occur in this sequence
+		switch (part.name) {
+			case 'left':
+				leftPart = part;
+				break;
+			case 'match':
+				matchPart = part;
+				break;
+			case 'right':
+				matches.push({ index: leftPart!.start, innerText: matchPart!.value, outerText: leftPart!.value + matchPart!.value + part.value, left: leftPart!.value, right: part.value });
+				break;
+			default:
+				throw new Error(`Unexpected part name: '${part.name}'.`);
+		}
+	}
+
+	return matches;
 }
 
 export function replaceAt(string: string, index: number, length: number, replacement: string): string {
@@ -186,7 +277,7 @@ export function execCmd(command: string, options: cp.ExecOptions, token = Cancel
 // gets object property by name
 export function get(path: string, obj: any, fallback = `\{${path}}`): string {
 	const parts: string[] = path.split('.');
-	return parts.reduce((res, key) => res[key] || fallback, obj);
+	return parts.reduce((res, key) => res[key] ?? fallback, obj);
 }
 
 function isWinCmd(shell?: string): boolean {
@@ -226,16 +317,89 @@ export async function spawnCommand(shell: string, commandLine: string, rootPath:
 	});
 }
 
-/** add elements of one dictionary to another dictionary */
-export function addToDictionary(source: IStringDictionary<string | string[]>, destination: IStringDictionary<string | string[]>) {
-	Object.keys(source).forEach(key => {
-		let value = source[key];
-		destination[key] = value;
-	});
-}
-
 export function listObject(obj: any): string[] {
 	const keys = Object.keys(obj);
 	const values = keys.map(key => `${key}: ${Reflect.get(obj, key)}`);
 	return values;
+}
+
+export function lookUpVariable(name: string, extraParams: ParamsDictionary): string[] | string {
+	let newValue: string[] | string | undefined = undefined;
+
+	if (name.startsWith('~')) {
+		const home = (process.platform === 'win32') ? process.env.USERPROFILE : process.env.HOME;
+		newValue = path.join(home || '', name.substr(1));
+		newValue = escapeTemplateText(newValue);
+	} else if (name.startsWith('env:')) {
+		name = name.substr('env:'.length);
+		newValue = process.env[name];
+		if (newValue) newValue = escapeTemplateText(newValue);
+	} else {
+		newValue = extraParams[name];
+	}
+
+	if (newValue === undefined) {
+		throw new Error(`Unable to resolve variable '${name}'.`);
+	}
+
+	return newValue;
+}
+
+export function escapeTemplateText(text: string[]): string[];
+export function escapeTemplateText(text: string): string;
+export function escapeTemplateText(text: string | string[]): any {
+	if (isArrayOfString(text)) {
+		const tmpArray: string[] = [];
+		text.forEach(val => {
+			tmpArray.push(escapeTemplateText(val));
+		});
+		return tmpArray;
+	}
+	text = text.replace(/[\[\]\(\)\$\{\}\,\\]/g, match => {
+		return '\\' + match;
+	});
+	return text;
+}
+
+export function unescapeTemplateText(text: string): string;
+export function unescapeTemplateText(text: string[]): string[];
+export function unescapeTemplateText(text: string| string[]): any {
+	if (isArrayOfString(text)) {
+		const tmpArray: string[] = [];
+		text.forEach(val => {
+			tmpArray.push(unescapeTemplateText(val));
+		});
+		return tmpArray;
+	}
+	text = text.replace(/(?:\\(.))/g, '$1'); // TODO: it works, test if it is faster, unescapes all characters
+	/*
+	text = text.replace(/\\[\[\]\(\)\$\{\}\,\\]/g, match => {
+		return match.substr(1, 1); // return the second char only, without trailing '\'
+	});
+	*/
+	return text;
+}
+
+/** returns escaped file/directory paths */
+export function expandGlob(workspaceRoot: string, pattern: string, expandOption: ExpandPathsOption): string[] {
+	if (expandOption === ExpandPathsOption.noExpand) {
+		return [pattern];
+	} else {
+		if (expandOption === ExpandPathsOption.directoriesOnly) {
+			// make sure pattern ends with '/' - this causes only directories to be matched
+			if (!pattern.endsWith('/') && !pattern.endsWith('\\')) pattern += '/';
+		}
+		const cwd = path.isAbsolute(pattern) ? '/' : workspaceRoot; // do not return full path if at workspaceRoot
+		const nodir = (expandOption === ExpandPathsOption.filesOnly);
+		const paths = globSync(pattern, { cwd: cwd, nodir: nodir });
+		paths.forEach((path, index, paths) => {
+			if (path.endsWith('/') || path.endsWith('\\')) {
+				// remove trailing \ /
+				path = path.substr(0, path.length - 1);
+			}
+			path = escapeTemplateText(path);
+			paths[index] = path;
+		});
+		return paths;
+	}
 }

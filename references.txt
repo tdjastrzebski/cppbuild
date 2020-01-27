@@ -59,10 +59,8 @@ https://2ality.com/2017/05/regexp-named-capture-groups.html
 https://github.com/tc39/proposal-regexp-named-groups
 https://2ality.com/2017/05/regexp-named-capture-groups.html
 
-
-command      = (text | single_param | sub_template)+
-sub_template = ( (text | single_param)* ([(text | single_param)* multi_param (text | single_param)*] | multi_param) (text | single_param)* )
-multi_param  = $${name}
-single_param = ${name}
-text = (~({ | } | ( | ) | [ | ]))+
-name = ([a..z] | [A..Z] | [0..9] | _ | - | . | :)+
+Mocha setup
+https://adrianhall.github.io/web/2018/07/04/run-typescript-mocha-tests-in-vscode/
+https://vscode.rocks/testing/
+https://github.com/microsoft/vscode-recipes/tree/master/debugging-mocha-tests
+https://blog.logrocket.com/a-quick-and-complete-guide-to-mocha-testing-d0e0ea09f09d/
