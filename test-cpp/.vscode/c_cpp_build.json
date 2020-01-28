@@ -97,7 +97,7 @@
 		{
 			"name": "msvc",
 			"params": {
-				"scopeCppSDK": "C:/Program Files \\(x86\\)/Microsoft Visual Studio/2019/Enterprise/SDK/ScopeCppSDK",
+				"scopeCppSDK": "C:/Program Files \\(x86\\)/Microsoft Visual Studio/2019/Community/SDK/ScopeCppSDK",
 				"libPaths": [
 					"${scopeCppSDK}/VC/include",
 					"${scopeCppSDK}/SDK/include/ucrt"

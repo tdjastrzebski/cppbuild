@@ -6,7 +6,7 @@
 'use strict';
 
 import * as path from 'path';
-import { readLines, elapsedMills, globAsync } from './utils';
+import { readLines, elapsedMills, globAsync, normalizePath } from './utils';
 import * as process from 'process';
 import { AsyncMutex } from "@esfx/async-mutex";
 
@@ -24,7 +24,7 @@ export class IncludesTrimmer {
 	}
 
 	public constructor(root: string) {
-		this._root = path.normalize(root);
+		this._root = normalizePath(root);
 	}
 
 	/** Registers paths to be analysed */
@@ -40,7 +40,7 @@ export class IncludesTrimmer {
 
 			// read includePaths which do not start with _root
 			for (let includePath of includePaths) {
-				includePath = path.normalize(includePath);
+				includePath = normalizePath(includePath);
 				if (this._includePaths.includes(includePath)) continue; // skip path - already enlisted
 				if (path.isAbsolute(includePath)) {
 					if (includePath.startsWith(this._root)) continue; // skip paths starting with _root (already enlisted)
@@ -77,7 +77,7 @@ export class IncludesTrimmer {
 
 	/** Function returns subset of the previously enlisted paths required by a given file or null if file was not found. */
 	async getIncludes(fileLocation: string, file: string): Promise<string[] | null> {
-		fileLocation = path.normalize(fileLocation);
+		fileLocation = normalizePath(fileLocation);
 		await this._mutex.lock();
 
 		try {

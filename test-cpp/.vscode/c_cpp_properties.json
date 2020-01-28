@@ -18,7 +18,7 @@
         },
         {
             "name": "msvc",
-            "compilerPath": "${env:MsvcToolchainPath}/../../../../SDK/ScopeCppSDK/VC/bin/cl.exe",
+            "compilerPath": "C:/Program Files (x86)/Microsoft Visual Studio/2019/Community/SDK/ScopeCppSDK/VC/bin/cl.exe",
             "intelliSenseMode": "msvc-x64",
             "cStandard": "c11",
             "cppStandard": "c++17",

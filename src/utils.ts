@@ -15,7 +15,7 @@ import { CancelToken, CancelSubscription } from "@esfx/async-canceltoken";
 import { isArrayOfString } from './cpptools';
 const detectMocha = require('detect-mocha');
 const XRegExp = require('xregexp');
-export const IsMochaRunning = process.argv[1].endsWith(path.normalize('/node_modules/mocha/bin/mocha')) || detectMocha();
+export const IsMochaRunning = process.argv[1].endsWith(normalizePath('/node_modules/mocha/bin/mocha')) || detectMocha();
 const ctx = new chalk.Instance({ level: 3 });
 
 function color(text: string, red: number, green: number, blue: number, color: (...text: unknown[]) => string): string {
@@ -363,7 +363,7 @@ export function escapeTemplateText(text: string | string[]): any {
 
 export function unescapeTemplateText(text: string): string;
 export function unescapeTemplateText(text: string[]): string[];
-export function unescapeTemplateText(text: string| string[]): any {
+export function unescapeTemplateText(text: string | string[]): any {
 	if (isArrayOfString(text)) {
 		const tmpArray: string[] = [];
 		text.forEach(val => {
@@ -402,4 +402,9 @@ export function expandGlob(workspaceRoot: string, pattern: string, expandOption:
 		});
 		return paths;
 	}
+}
+
+/** Normalize path, always use '/' as path separator */
+export function normalizePath(p: string): string {
+	return path.normalize(p).replace(/\\/g, '/');
 }

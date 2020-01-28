@@ -6,7 +6,7 @@
 'use strict';
 
 import { Configuration, ConfigurationJson, checkDirectoryExists, checkFileExists, isArrayOfString } from './cpptools';
-import { replaceAt, makeDirectory, getJsonObject, listObject, matchRecursive, replaceRecursive, unescapeTemplateText, escapeTemplateText, expandGlob, IsMochaRunning } from './utils';
+import { replaceAt, makeDirectory, getJsonObject, listObject, matchRecursive, replaceRecursive, unescapeTemplateText, escapeTemplateText, expandGlob, IsMochaRunning, normalizePath } from './utils';
 import { CppParams, GlobalConfiguration, BuildInfo, ExpandPathsOption, VariableResolver } from './interfaces';
 import { BuildStepsFileSchema, PropertiesFileSchema } from './consts';
 import { hasMagic } from "glob";
@@ -269,7 +269,7 @@ export function variableListParse(list: string): string[] {
 function formatPath(pathString: string): string {
 	pathString = pathString.trim();
 	pathString = unescapeTemplateText(pathString);
-	pathString = path.normalize(pathString);
+	pathString = normalizePath(pathString);
 
 	if (pathString.indexOf(' ') != -1) {
 		if (pathString.startsWith('"') && pathString.endsWith('"')) {
