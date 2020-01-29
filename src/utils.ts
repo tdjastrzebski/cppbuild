@@ -404,7 +404,7 @@ export function expandGlob(workspaceRoot: string, pattern: string, expandOption:
 	}
 }
 
-/** Normalize path, always use '/' as path separator */
+/** Normalize path, always use '/' as a path separator */
 export function normalizePath(p: string): string {
 	return path.normalize(p).replace(/\\/g, '/');
 }

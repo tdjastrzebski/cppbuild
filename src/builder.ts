@@ -537,7 +537,7 @@ export async function setSampleBuildConfig(buildStepsPath: string, configName: s
 			break;
 		case 'msvc-x64':
 			if (!configParams) configParams = {};
-			configParams['scopeCppSDK'] = 'C:/Program Files \\(x86\\)/Microsoft Visual Studio/2019/Enterprise/SDK/ScopeCppSDK';
+			configParams['scopeCppSDK'] = 'C:/Program Files \\(x86\\)/Microsoft Visual Studio/2019/Community/SDK/ScopeCppSDK';
 			const libPaths = getParamsArray(configParams, 'libPaths');
 			libPaths.push('${scopeCppSDK}/VC/include');
 			libPaths.push('${scopeCppSDK}/SDK/include/ucrt');
