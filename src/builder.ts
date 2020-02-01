@@ -19,6 +19,7 @@ import * as fs from 'fs';
 import { IncludesTrimmer } from "./trimmers";
 import { PredefinedVariables as PV } from "./interfaces";
 import uniq from 'lodash.uniq';
+import { setPriority } from "os";
 
 export class Builder {
 	/** @returns [totalFilesProcessed, totalFilesSkipped, totalErrorsEncountered] */
@@ -177,6 +178,8 @@ export class Builder {
 					logOutput(iColor(`${buildStep.name}: build step completed in ${elapsed.toFixed(2)}s, ${filesProcessed} file(s) processed, ${filesSkipped} file(s) skipped, ` + errorsColor(`${errorsEncountered} error(s) encountered.`)));
 					totalFilesProcessed += filesProcessed;
 				}
+				
+				if (!options.continueOnError && errorsEncountered > 0) break;
 			} catch (e) {
 				throw new Error(`An error occurred during '${buildStep.name}' step - terminating.\n${e.message}`);
 			}
