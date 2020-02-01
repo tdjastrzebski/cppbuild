@@ -27,7 +27,7 @@ export class Builder {
 		const variables: ParamsDictionary[] = [];
 		const cppVariables: ParamsDictionary = {};
 		const globalVariables: ParamsDictionary = {};
-		
+
 		globalVariables[PV.workspaceRoot] = escapeTemplateText(workspaceRoot);
 		globalVariables[PV.workspaceFolder] = escapeTemplateText(workspaceRoot);
 		globalVariables[PV.workspaceRootFolderName] = escapeTemplateText(workspaceRootFolderName);
@@ -71,7 +71,7 @@ export class Builder {
 			if (!cppParams) {
 				throw new Error(`Configuration name '${configName}' not found in '${propertiesPath}' file.`);
 			}
-			
+
 			// resolve 'includePath', 'forcedInclude' and 'defines' variables using cpptools resolver first
 			// since special chars in variables from cpp properties are not escaped
 			const additionalEnvironment: ParamsDictionary = {};
@@ -222,7 +222,7 @@ export class Builder {
 					if (!fullInputFilePath) throw new Error(`Incorrect file path: '${filePath}.'`);
 					if (!await checkFileExists(fullInputFilePath)) throw new Error(`File '${filePath}' does not exist.`);
 
-					const stepVariables = deepClone(variables);
+					const stepVariables = deepClone(variables); // copy variables before modifying since files may be processed in parallel
 					const cmdVariables: ParamsDictionary = {};
 					stepVariables.push(cmdVariables);
 
@@ -481,11 +481,11 @@ export class Builder {
 		} finally {
 			if (result) {
 				output = result.stdout;
-				output = output.trimRight();
+				output = output?.trimRight();
 				if (result.error?.message) {
 					error = result.error?.message;
 				} else {
-					error = result.stderr;
+					error = result?.stderr;
 				}
 				error = error?.trimRight();
 			}

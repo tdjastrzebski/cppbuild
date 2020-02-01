@@ -255,20 +255,25 @@ export interface ExecCmdResult {
 export function execCmd(command: string, options: cp.ExecOptions, token = CancelToken.none): Promise<ExecCmdResult> {
 	return new Promise<ExecCmdResult>((resolve, reject) => {
 		let subscription: CancelSubscription | null = null;
+		let proc: cp.ChildProcess;
 		//token.throwIfSignaled(); // CancelError
 		if (token.signaled) reject(); // already signaled
 
-		const proc: cp.ChildProcess = cp.exec(command, options, (error, stdout, stderr) => {
-			if (subscription) subscription.unsubscribe();
-			if (error) {
-				reject({ stdout, stderr, error });
-			} else {
-				resolve({ stdout, stderr });
-			}
-		});
-
+		try {
+			proc = cp.exec(command, options, (error, stdout, stderr) => {
+				if (subscription) subscription.unsubscribe();
+				if (error) {
+					reject({ stdout, stderr, error });
+				} else {
+					resolve({ stdout, stderr });
+				}
+			});
+		} catch (e) {
+			reject({ stdout: undefined, stderr: undefined, error: e });
+		}
+		
 		subscription = token.subscribe(() => {
-			proc.kill();
+			proc?.kill();
 			reject(); // TODO: throw CancelError ?
 		});
 	});

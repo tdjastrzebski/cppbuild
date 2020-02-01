@@ -18,10 +18,11 @@
                 //"gcc", "gcc-x64", "-i", "test-cpp/.vscode/c_cpp_build.json"
                 //"msvc", "msvc-x64", "-i", "test-cpp/.vscode/c_cpp_build.json"
                 //"clang", "clang-x64", "-i", "test-cpp/.vscode/c_cpp_build.json"
-                "gcc", "debug", "-w", "test-cpp", "-c", "-f", "-d"
+                //"gcc", "debug", "-w", "test-cpp", "-c", "-f", "-d"
                 //"msvc", "debug", "-w", "test-cpp", "-c", "-f", "-d"
                 //"clang", "debug", "-w", "test-cpp", "-c", "-f", "-d"
                 //"--help"
+                "gcc", "release", "-w", "C:/Test Projects/mbed-os-example-blinky", "-d"
             ]
         },
         {
