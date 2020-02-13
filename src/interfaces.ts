@@ -82,7 +82,8 @@ export enum PredefinedVariables {
 	configName = 'configName',
 	outputFile = 'outputFile',
 	outputDirectory = 'outputDirectory',
-	trimIncludePaths = 'trimIncludePaths'
+	trimIncludePaths = 'trimIncludePaths',
+	command = 'command'
 }
 
 export enum ExpandPathsOption { filesOnly, directoriesOnly, noExpand, expandAll }

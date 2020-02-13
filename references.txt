@@ -37,6 +37,8 @@ cppbuild GCC debug -w H:/DISCO-F769NI_LCD_demo -b H:/cppbuild/c_cpp_build.json -
 
 npm link
 npm publish --dry-run
+git tag <name>
+git push origin tag <name>
 
 Understanding JSON Schema
 https://json-schema.org/understanding-json-schema/

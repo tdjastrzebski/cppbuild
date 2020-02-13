@@ -81,7 +81,7 @@ export function expandTemplate(workspaceRoot: string, template: string, variable
 	return replacement;
 }
 
-export function expandTemplates(workspaceRoot: string, template: string, variableResolver: VariableResolver, inSubtemplate: boolean, expandOption: ExpandPathsOption): string | string[] {
+export function expandTemplates(workspaceRoot: string, template: string, variableResolver: VariableResolver, inSubtemplate: boolean = false, expandOption: ExpandPathsOption = ExpandPathsOption.expandAll): string | string[] {
 	// 1. expand sub-templates: ()
 	template = replaceRecursive(template, '\\(', '\\)', (match) => {
 		let t = template;

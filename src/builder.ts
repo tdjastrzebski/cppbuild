@@ -178,7 +178,7 @@ export class Builder {
 					logOutput(iColor(`${buildStep.name}: build step completed in ${elapsed.toFixed(2)}s, ${filesProcessed} file(s) processed, ${filesSkipped} file(s) skipped, ` + errorsColor(`${errorsEncountered} error(s) encountered.`)));
 					totalFilesProcessed += filesProcessed;
 				}
-				
+
 				if (!options.continueOnError && errorsEncountered > 0) break;
 			} catch (e) {
 				throw new Error(`An error occurred during '${buildStep.name}' step - terminating.\n${e.message}`);
@@ -260,6 +260,8 @@ export class Builder {
 						const outputFileDirectory = path.dirname(outputFilePath);
 						await createOutputDirectory(workspaceRoot, outputFileDirectory);
 					}
+					
+					if (cancelSource.token.signaled) return;
 
 					if (buildStep.outputDirectory) {
 						const outputDirectory = this.resolveVariable(workspaceRoot, PV.outputDirectory, stepVariables, ExpandPathsOption.directoriesOnly);
@@ -281,6 +283,8 @@ export class Builder {
 					// resolve 'includePaths'
 					let cmdIncludePaths = cmdVariableResolver(PV.includePath, ExpandPathsOption.directoriesOnly);
 					cmdIncludePaths = expandMultivalues(workspaceRoot, cmdIncludePaths, cmdVariableResolver, ExpandPathsOption.directoriesOnly);
+					
+					if (cancelSource.token.signaled) return;
 
 					if (trimmer) {
 						// includePaths trimming is enabled
@@ -300,8 +304,10 @@ export class Builder {
 
 					const command = expandTemplate(workspaceRoot, buildStep.command, cmdVariableResolver);
 					const actionName = buildStep.name + ': ' + filePath;
+					if (cancelSource.token.signaled) return;
 					const result = await this.execCommand(workspaceRoot, command, actionName, logOutput, logError, cancelSource.token, options.debug);
-
+					if (cancelSource.token.signaled) return;
+					
 					if (result) {
 						if (result.error) {
 							errorsEncountered++;
@@ -360,6 +366,18 @@ export class Builder {
 			const cmdVariableResolver = (name: string, expandOption: ExpandPathsOption) => { return this.resolveVariable(workspaceRoot, name, stepVariables, expandOption, cmdVariableValues); };
 			const cmdVariableValues: Map<string, string[]> = new Map<string, string[]>();
 
+			// resolve 'forcedInclude'
+			let forcedInclude = cmdVariableResolver(PV.forcedInclude, ExpandPathsOption.filesOnly);
+			forcedInclude = expandMultivalues(workspaceRoot, forcedInclude, cmdVariableResolver, ExpandPathsOption.filesOnly);
+			cmdVariables[PV.forcedInclude] = forcedInclude;
+			cmdVariableValues.set(PV.forcedInclude, forcedInclude); // prevent resolving forcedInclude again
+
+			// resolve 'includePaths'
+			let cmdIncludePaths = cmdVariableResolver(PV.includePath, ExpandPathsOption.directoriesOnly);
+			cmdIncludePaths = expandMultivalues(workspaceRoot, cmdIncludePaths, cmdVariableResolver, ExpandPathsOption.directoriesOnly);
+			cmdVariables[PV.includePath] = cmdIncludePaths;
+			cmdVariableValues.set(PV.includePath, cmdIncludePaths); // prevent resolving includePaths again
+
 			if (buildStep.outputDirectory) {
 				const outputDirectory = cmdVariableResolver(PV.outputDirectory, ExpandPathsOption.directoriesOnly);
 				cmdVariables[PV.outputDirectory] = outputDirectory;
@@ -367,19 +385,33 @@ export class Builder {
 				await createOutputDirectory(workspaceRoot, outputDirectory);
 			}
 
-			// TODO: consider trimming paths as well
-			const command = expandTemplate(workspaceRoot, buildStep.command, cmdVariableResolver);
-			const actionName = buildStep.name;
-			const result = await this.execCommand(workspaceRoot, command, actionName, logOutput, logError, cancelSource.token, options.debug);
+			cmdVariables[PV.command] = buildStep.command;
 
-			if (result && result.error) {
-				if (!options.continueOnError) cancelSource.cancel();
-				return [-1, 0, 1];
-			} else {
-				return [-1, 0, 0];
+			let commands = cmdVariableResolver(PV.command, ExpandPathsOption.expandAll);
+			commands = expandMultivalues(workspaceRoot, commands, cmdVariableResolver, ExpandPathsOption.filesOnly);
+			commands = unescapeTemplateText(commands);
+
+			// TODO: consider trimming paths as well
+			const actionName = buildStep.name;
+			//if (!isArrayOfString(commands)) commands = commands ? [commands] : [];
+
+			let errorsEncountered = 0;
+
+			for (const command of commands) {
+				const result = await this.execCommand(workspaceRoot, command, actionName, logOutput, logError, cancelSource.token, options.debug);
+				if (result && result.error) {
+					errorsEncountered++;
+					if (!options.continueOnError) {
+						cancelSource.cancel();
+						return [-1, 0, errorsEncountered]; // [filesProcessedCount, filesSkipped, errorsEncountered]
+					}
+				}
 			}
+
+			return [-1, 0, errorsEncountered]; // [filesProcessedCount, filesSkipped, errorsEncountered]
 		}
 	}
+
 	/*
 	resolveVariables(workspaceRoot: string, variables: ParamsDictionary[], expandOption: ExpandPathsOption = ExpandPathsOption.expandAll): ParamsDictionary {
 		const variableNames: Set<string> = new Set<string>();
