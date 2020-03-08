@@ -7,7 +7,7 @@
 
 import { BuildStepsFileSchema, PropertiesFileSchema } from "./consts";
 import { GlobalConfiguration, BuildConfiguration, BuildType, CppParams, BuildStep, BuilderOptions, ParamsDictionary, ExpandPathsOption, CompilerType, Logger } from "./interfaces";
-import { getJsonObject, ExecCmdResult, execCmd, getFileMTime, getFileStatus, elapsedMills, iColor, makeDirectory, dColor, escapeTemplateText, unescapeTemplateText, eColor, kColor } from "./utils";
+import { getJsonObject, ExecCmdResult, execCmd, getFileMTime, getFileStatus, elapsedMills, iColor, makeDirectory, dColor, escapeTemplateText, unescapeTemplateText, eColor, kColor, sColor } from "./utils";
 import { getCppConfigParams, validateJsonFile, createOutputDirectory, expandTemplate, expandTemplates, expandMultivalues } from "./processor";
 import { checkFileExists, ConfigurationJson, checkDirectoryExists, isArrayOfString, resolveVariables } from "./cpptools";
 import { AsyncSemaphore } from "@esfx/async-semaphore";
@@ -388,13 +388,12 @@ export class Builder {
 			cmdVariables[PV.command] = buildStep.command;
 
 			let commands = cmdVariableResolver(PV.command, ExpandPathsOption.expandAll);
-			commands = expandMultivalues(workspaceRoot, commands, cmdVariableResolver, ExpandPathsOption.filesOnly);
+			//commands = expandMultivalues(workspaceRoot, commands, cmdVariableResolver, ExpandPathsOption.filesOnly); / DO NOT!
+			if (!isArrayOfString(commands)) commands = [commands];
 			commands = unescapeTemplateText(commands);
 
 			// TODO: consider trimming paths as well
 			const actionName = buildStep.name;
-			//if (!isArrayOfString(commands)) commands = commands ? [commands] : [];
-
 			let errorsEncountered = 0;
 
 			for (const command of commands) {

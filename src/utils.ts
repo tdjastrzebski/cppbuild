@@ -36,6 +36,11 @@ export function wColor(text: string) {
 	return ctx.rgb(205, 151, 49)(text);
 }
 
+/** summary */
+export function sColor(text: string) {
+	return ctx.rgb(205, 151, 49)(text); // same as warning
+}
+
 /** error */
 export function eColor(text: string): string {
 	return ctx.rgb(224, 110, 100)(text);

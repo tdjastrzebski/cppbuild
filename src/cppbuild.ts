@@ -7,7 +7,7 @@
 
 'use strict';
 
-import { getLatestVersion, sleep, elapsedMills, iColor, wColor, eColor, rColor, hColor, kColor, dColor } from './utils';
+import { getLatestVersion, sleep, elapsedMills, iColor, wColor, eColor, rColor, hColor, kColor, sColor } from './utils';
 import { ToolName, ToolVersion, VscodeFolder, BuildStepsFile, PropertiesFile } from './consts';
 import { BuilderOptions, CompilerType, IStringDictionary } from './interfaces';
 import { Builder, setSampleBuildConfig } from './builder';
