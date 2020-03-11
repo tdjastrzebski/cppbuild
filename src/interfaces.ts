@@ -15,16 +15,16 @@ export interface IStringDictionary<V> {
 
 export interface GlobalConfiguration {
 	version: number;
-	configurations: BuildConfiguration[];
 	params?: ParamsDictionary;
+	configurations: BuildConfiguration[];
 }
 
 export interface BuildConfiguration {
 	name: string;
+	params?: ParamsDictionary;
 	problemMatchers?: string[];
 	buildTypes?: BuildType[];
 	buildSteps: BuildStep[];
-	params?: ParamsDictionary;
 }
 
 export interface BuildType {
@@ -34,12 +34,12 @@ export interface BuildType {
 
 export interface BuildStep {
 	name: string;
+	params?: ParamsDictionary;
 	filePattern?: string | string[];
 	fileList?: string | string[];
 	outputDirectory?: string;
 	outputFile?: string;
 	command: string;
-	params?: ParamsDictionary;
 	trimIncludePaths?: boolean;
 }
 
