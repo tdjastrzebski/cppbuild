@@ -621,7 +621,7 @@ export async function setSampleBuildConfig(buildStepsPath: string, configName: s
 	} else {
 		// file does not yet exist
 		const bConfigs: BuildConfiguration[] = [];
-		configs = { version: 1, configurations: bConfigs };
+		configs = { version: 1, params: {}, configurations: bConfigs };
 		bConfigs.push(bConfig);
 	}
 
