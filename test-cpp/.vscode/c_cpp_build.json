@@ -57,47 +57,9 @@
 			]
 		},
 		{
-			"name": "clang",
-			"buildTypes": [
-				{
-					"name": "debug",
-					"params": {
-						"buildTypeParams": "-O0 -g",
-						"defines": [
-							"$${defines}",
-							"$${debugDefines}"
-						]
-					}
-				},
-				{
-					"name": "release",
-					"params": {
-						"buildTypeParams": "-O2 -g0"
-					}
-				}
-			],
-			"buildSteps": [
-				{
-					"name": "C++ Compile Sample Step",
-					"filePattern": "**/*.cpp",
-					"outputFile": "${buildOutput}/${fileDirectory}/${fileName}.o",
-					"command": "clang++ -c -std=c++17 ${buildTypeParams} (-I[$${includePath}]) (-D$${defines}) (-include [$${forcedInclude}]) [${filePath}] -o [${outputFile}]",
-					"trimIncludePaths": true
-				},
-				{
-					"name": "C++ Link Sample Step",
-					"fileList": "${buildOutput}/**/*.o",
-					"command": "clang++ -c [$${filePath}] -o [${buildOutput}/main.bin]"
-				}
-			],
-			"problemMatchers": [
-				"$gcc"
-			]
-		},
-		{
 			"name": "msvc",
 			"params": {
-				"scopeCppSDK": "C:/Program Files \\(x86\\)/Microsoft Visual Studio/2019/Community/SDK/ScopeCppSDK",
+				"scopeCppSDK": "C:/Program Files \\(x86\\)/Microsoft Visual Studio/2019/Enterprise/SDK/ScopeCppSDK",
 				"libPaths": [
 					"${scopeCppSDK}/VC/include",
 					"${scopeCppSDK}/SDK/include/ucrt"
@@ -142,6 +104,44 @@
 			],
 			"problemMatchers": [
 				"$msCompile"
+			]
+		},
+		{
+			"name": "clang",
+			"buildTypes": [
+				{
+					"name": "debug",
+					"params": {
+						"buildTypeParams": "-O0 -g",
+						"defines": [
+							"$${defines}",
+							"$${debugDefines}"
+						]
+					}
+				},
+				{
+					"name": "release",
+					"params": {
+						"buildTypeParams": "-O2 -g0"
+					}
+				}
+			],
+			"buildSteps": [
+				{
+					"name": "C++ Compile Sample Step",
+					"filePattern": "**/*.cpp",
+					"outputFile": "${buildOutput}/${fileDirectory}/${fileName}.o",
+					"command": "clang++ -c -std=c++17 ${buildTypeParams} (-I[$${includePath}]) (-D$${defines}) (-include [$${forcedInclude}]) [${filePath}] -o [${outputFile}]",
+					"trimIncludePaths": true
+				},
+				{
+					"name": "C++ Link Sample Step",
+					"fileList": "${buildOutput}/**/*.o",
+					"command": "clang++ -c [${filePath}] -o [${buildOutput}/main.bin]"
+				}
+			],
+			"problemMatchers": [
+				"$gcc"
 			]
 		}
 	]

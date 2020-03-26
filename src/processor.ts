@@ -8,7 +8,7 @@
 import { Configuration, ConfigurationJson, checkDirectoryExists, checkFileExists, isArrayOfString } from './cpptools';
 import { replaceAt, makeDirectory, getJsonObject, listObject, matchRecursive, replaceRecursive, unescapeTemplateText, escapeTemplateText, expandGlob, IsMochaRunning, normalizePath } from './utils';
 import { CppParams, GlobalConfiguration, BuildInfo, ExpandPathsOption, VariableResolver } from './interfaces';
-import { BuildStepsFileSchema, PropertiesFileSchema } from './consts';
+import { BuildStepsFileSchema, PropertiesFileSchema, VariableList, ListValues } from './consts';
 import { hasMagic } from "glob";
 import { AsyncMutex } from "@esfx/async-mutex";
 import { deepClone } from './vscode';
@@ -188,7 +188,7 @@ export function getMultivalues(workspaceRoot: string, variableText: string, vari
 				values = deepClone(paramValue);
 			}
 		}
-	} else if (variableList.test(variableText)) {
+	} else if (VariableList.test(variableText)) {
 		// treat variableText as a list of values
 		values = variableListParse(variableText);
 	} else {
@@ -242,18 +242,12 @@ export function variableListJoin(list: string[] | string): string {
 	return values.join(',');
 }
 
-// expression to validate variable list
-const variableList = /^\s*(?:'[^'\\]*(?:\\[\S\s][^'\\]*)*'|[^,'\s\\]*(?:\s+[^,'\s\\]+)*)\s*(?:,\s*(?:'[^'\\]*(?:\\[\S\s][^'\\]*)*'|[^,'\s\\]*(?:\s+[^,'\s\\]+)*)\s*)*$/;
-// expression to match variable list values
-const listValues = /(?!\s*$)\s*(?:'([^'\\]*(?:\\[\S\s][^'\\]*)*)'|([^,'\s\\]*(?:\s+[^,'\s\\]+)*))\s*(?:,|$)/g;
-// for discussion refer to: https://stackoverflow.com/questions/8493195/how-can-i-parse-a-csv-string-with-javascript-which-contains-comma-in-data
-
 export function variableListParse(list: string): string[] {
-	if (!variableList.test(list)) {
+	if (!VariableList.test(list)) {
 		throw new Error(`Variable list is malformed: ${list}.`);
 	}
 	const values: string[] = [];
-	const matches = list.match(listValues);
+	const matches = list.match(ListValues);
 	matches?.forEach(value => {
 		value = value.trim();
 		value = value.endsWith(',') ? value.substr(0, value.length - 1) : value; // remove ending ','

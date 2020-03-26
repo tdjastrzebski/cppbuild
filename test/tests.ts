@@ -13,7 +13,7 @@ import chalk from 'chalk';
 import { getBuildInfos, validateJsonFile, expandTemplate, getMultivalues, variableListParse, variableListJoin } from '../src/processor';
 import { elapsedMills, dColor, unescapeTemplateText, escapeTemplateText, expandGlob, lookUpVariable } from '../src/utils';
 import { BuildStepsFileSchema, PropertiesFileSchema, PropertiesFile, BuildStepsFile } from '../src/api';
-import { IncludesTrimmer } from '../src/trimmers';
+import { cppAnalyzer } from '../src/cppAnalyzer';
 import { ParamsDictionary, ExpandPathsOption } from '../src/interfaces';
 const testRoot = 'c:/temp/cppbuild-test';
 const workspaceRoot = process.cwd();
@@ -200,7 +200,7 @@ suite('other tests', () => {
 	test('trimmer.getIncludes test', async () => {
 		const root = 'test-cpp';
 		const includePaths = [''];//expandNoTemplatePaths(root, ["mbed-os", "mbed-os/**"], (name) => lookUpVariable(name, {}), ExpandPathsOption.expandAll);
-		const trimmer = new IncludesTrimmer(root);
+		const trimmer = new cppAnalyzer(root);
 
 		let start = process.hrtime();
 		await trimmer.enlistFiles(includePaths);
@@ -212,7 +212,7 @@ suite('other tests', () => {
 		for (const file of files) {
 			const fileLocation = path.join(root, path.dirname(file));
 			const fileName = path.basename(file);
-			const fileIncludes = await trimmer.getIncludes(fileLocation, fileName);
+			const fileIncludes = await trimmer.getPaths(fileLocation, fileName);
 
 			if (fileName == 'stm32f7xx.h') {
 				const o = trimmer.pathMap.get('object.h'); // device.h

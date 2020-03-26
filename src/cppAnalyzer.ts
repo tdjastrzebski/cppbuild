@@ -10,7 +10,8 @@ import { readLines, elapsedMills, globAsync, normalizePath } from './utils';
 import * as process from 'process';
 import { AsyncMutex } from "@esfx/async-mutex";
 
-export class IncludesTrimmer {
+/** Class contains methods performing C/C++ static source code files dependency analysis. */
+export class cppAnalyzer {
 	/** Maps file to paths where its dependencies are located. Null value indicates missing file. */
 	private readonly _pathMap = new Map<string, Set<string> | null>();
 	/** Maps file to its dependencies */
@@ -27,7 +28,7 @@ export class IncludesTrimmer {
 		this._root = normalizePath(root);
 	}
 
-	/** Registers paths to be analysed */
+	/** Registers paths containing source code files to be analysed */
 	async enlistFiles(includePaths: string[]) {
 		await this._mutex.lock();
 
@@ -56,7 +57,6 @@ export class IncludesTrimmer {
 	}
 
 	private async enlist(location: string) {
-		const start0 = process.hrtime();
 		const filePaths = await globAsync('**/*', { cwd: location });
 
 		for (const filePath of filePaths) {
@@ -72,16 +72,15 @@ export class IncludesTrimmer {
 				this._fileMap!.set(fileName, paths);
 			}
 		}
-		const c0 = elapsedMills(start0) / 1000;
 	}
 
 	/** Function returns subset of the previously enlisted paths required by a given file or null if file was not found. */
-	async getIncludes(fileLocation: string, file: string): Promise<string[] | null> {
+	async getPaths(fileLocation: string, file: string): Promise<string[] | null> {
 		fileLocation = normalizePath(fileLocation);
 		await this._mutex.lock();
 
 		try {
-			const includes = await this._getIncludes(fileLocation, file);
+			const includes = await this._getPaths(fileLocation, file);
 			if (!includes) return [];
 			const trimmedIncludePaths: string[] = [];
 			// put includePaths in the original order
@@ -94,7 +93,7 @@ export class IncludesTrimmer {
 		}
 	}
 
-	private async _getIncludes(fileLocation: string, file: string): Promise<Set<string> | null> {
+	private async _getPaths(fileLocation: string, file: string): Promise<Set<string> | null> {
 		const filePath = path.join(fileLocation, file);
 		let requiredPaths = this._pathMap.get(filePath);
 
@@ -134,7 +133,6 @@ export class IncludesTrimmer {
 
 		for (const includedFile of includeFiles) {
 			let locationFilePath = path.join(fileLocation, includedFile); // set to current location - file may not exist here
-			const start = process.hrtime();
 			const includePath = await this.findInclFile(this._root, locationFilePath, includedFile);
 
 			if (includePath) {
@@ -151,7 +149,7 @@ export class IncludesTrimmer {
 				this._pathMap.set(locationFilePath, null);
 				continue;
 			} else {
-				// includePath == undefined
+				// includePath is undefined
 				// file found at current location
 			}
 
@@ -161,7 +159,7 @@ export class IncludesTrimmer {
 				// get this file dependencies if not previously established
 				const newLocation = path.dirname(locationFilePath);
 				const fileName = path.basename(locationFilePath);
-				subRequiredPaths = await this._getIncludes(newLocation, fileName);
+				subRequiredPaths = await this._getPaths(newLocation, fileName);
 			}
 
 			if (subRequiredPaths !== null) {
@@ -185,8 +183,6 @@ export class IncludesTrimmer {
 				return undefined;
 			}
 
-			//for (let i: number = 0; i< this._includePaths.length; i++) {
-			//	const includePath = this._includePaths[i];
 			for (const includePath of this._includePaths) {
 				let testedPath: string;
 
@@ -196,7 +192,6 @@ export class IncludesTrimmer {
 					testedPath = path.join(root, includePath, searchedFile);
 				}
 
-				// if (await checkFileExists(testedPath)) {
 				if (paths.has(testedPath)) {
 					// file found
 					return includePath;

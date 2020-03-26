@@ -186,12 +186,19 @@ export function replaceRecursive(text: string, left: string, right: string, repl
 export function matchRecursive(text: string, left: string, right: string, flags: string = 'g', escapeChar?: string): XRegExpMatch[] {
 	// see: https://github.com/slevithan/xregexp#xregexpmatchrecursive
 	// see: http://xregexp.com/api/#matchRecursive
-	const parts: XRegExpPart[] = XRegExp.matchRecursive(text, left, right, flags, { valueNames: [null, 'left', 'match', 'right'], escapeChar: escapeChar });
+	let parts: XRegExpPart[];
+	
+	try {
+		parts = XRegExp.matchRecursive(text, left, right, flags, { valueNames: [null, 'left', 'match', 'right'], escapeChar: escapeChar });
+	} catch (e) {
+		throw new Error(`${e.message}: '${text}'.`);
+	}
+
 	const matches: XRegExpMatch[] = [];
 	let leftPart: XRegExpPart;
 	let matchPart: XRegExpPart;
 
-	for (const part of parts) {
+	for (const part of parts!) {
 		// note: assumption is made that left, match and right parts occur in this sequence
 		switch (part.name) {
 			case 'left':
