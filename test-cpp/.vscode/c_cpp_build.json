@@ -14,7 +14,7 @@
 		],
 		"includePath": [
 			"$${includePath}",
-			"${workspaceFolder}/**"
+			"${workspaceRoot}/**"
 		]
 	},
 	"configurations": [
@@ -59,7 +59,7 @@
 		{
 			"name": "msvc",
 			"params": {
-				"scopeCppSDK": "C:/Program Files \\(x86\\)/Microsoft Visual Studio/2019/Enterprise/SDK/ScopeCppSDK",
+				"scopeCppSDK": "C:/Program Files \\(x86\\)/Microsoft Visual Studio/2019/Community/SDK/ScopeCppSDK",
 				"libPaths": [
 					"${scopeCppSDK}/VC/include",
 					"${scopeCppSDK}/SDK/include/ucrt"
@@ -94,7 +94,8 @@
 					"name": "C++ Compile Sample Step",
 					"filePattern": "**/*.cpp",
 					"outputFile": "${buildOutput}/${fileDirectory}/${fileName}.o",
-					"command": "[${scopeCppSDK}/VC/bin/cl.exe] ${buildTypeParams} /nologo /EHs /GR /GF /W3 /EHsc /FS /c (/I[$${libPaths}]) (/I[$${includePath}]) (/D\"$${defines}\") (/FI[$${forcedInclude}]) [${filePath}] /Fo[${outputFile}]"
+					"command": "[${scopeCppSDK}/VC/bin/cl.exe] ${buildTypeParams} /nologo /EHs /GR /GF /W3 /EHsc /FS /c (/I[$${libPaths}]) (/I[$${includePath}]) (/D\"$${defines}\") (/FI[$${forcedInclude}]) [${filePath}] /Fo[${outputFile}]",
+					"trimIncludePaths": true
 				},
 				{
 					"name": "C++ Link Sample Step",
@@ -137,7 +138,7 @@
 				{
 					"name": "C++ Link Sample Step",
 					"fileList": "${buildOutput}/**/*.o",
-					"command": "clang++ -c [${filePath}] -o [${buildOutput}/main.bin]"
+					"command": "clang++ [$${filePath}] -o [${buildOutput}/main.bin]"
 				}
 			],
 			"problemMatchers": [

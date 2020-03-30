@@ -63,6 +63,12 @@ export interface BuilderOptions {
 	continueOnError: boolean;
 }
 
+export interface BuildStepResult {
+	filesProcessed: number;
+	filesSkipped: number;
+	errorsEncountered: number;
+}
+
 export enum PredefinedVariables {
 	stepName = 'stepName',
 	fileList = 'fileList',

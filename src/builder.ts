@@ -6,7 +6,7 @@
 'use strict';
 
 import { BuildStepsFileSchema, PropertiesFileSchema, VariableList } from "./consts";
-import { GlobalConfiguration, BuildConfiguration, BuildType, CppParams, BuildStep, BuilderOptions, ParamsDictionary, ExpandPathsOption, CompilerType, Logger, VariableResolver } from "./interfaces";
+import { GlobalConfiguration, BuildConfiguration, BuildType, CppParams, BuildStep, BuilderOptions, ParamsDictionary, ExpandPathsOption, CompilerType, Logger, VariableResolver, BuildStepResult } from "./interfaces";
 import { getJsonObject, ExecCmdResult, execCmd, getFileMTime, getFileStatus, elapsedMills, iColor, makeDirectory, dColor, escapeTemplateText, unescapeTemplateText, eColor, kColor, expandGlob } from "./utils";
 import { getCppConfigParams, validateJsonFile, createOutputDirectory, expandTemplate, expandTemplates, variableListParse } from "./processor";
 import { checkFileExists, ConfigurationJson, checkDirectoryExists, isArrayOfString, resolveVariables } from "./cpptools";
@@ -166,22 +166,20 @@ export class Builder {
 			try {
 				const start = process.hrtime();
 				const result = await this.runBuildStep(workspaceRoot, buildStep, stepVariables, options, logOutput, logError);
-				const filesProcessed = result[0];
-				const filesSkipped = result[1];
-				const errorsEncountered = result[2];
 
-				totalFilesSkipped += filesSkipped;
-				totalErrorsEncountered += errorsEncountered;
-				const errorsColor = errorsEncountered > 0 ? eColor : kColor;
-				if (filesProcessed == -1) {
-					logOutput(iColor(`${buildStep.name}: step completed, ` + errorsColor(`${errorsEncountered} error(s) encountered.`)));
+				totalFilesSkipped += result.filesSkipped;
+				totalErrorsEncountered += result.errorsEncountered;
+				const errorsColor = result.errorsEncountered > 0 ? eColor : kColor;
+
+				if (result.filesProcessed == -1) {
+					logOutput(iColor(`${buildStep.name}: step completed, ` + errorsColor(`${result.errorsEncountered} error(s) encountered.`)));
 				} else {
 					const elapsed = elapsedMills(start) / 1000;
-					logOutput(iColor(`${buildStep.name}: build step completed in ${elapsed.toFixed(2)}s, ${filesProcessed} file(s) processed, ${filesSkipped} file(s) skipped, ` + errorsColor(`${errorsEncountered} error(s) encountered.`)));
-					totalFilesProcessed += filesProcessed;
+					logOutput(iColor(`${buildStep.name}: build step completed in ${elapsed.toFixed(2)}s, ${result.filesProcessed} file(s) processed, ${result.filesSkipped} file(s) skipped, ` + errorsColor(`${result.errorsEncountered} error(s) encountered.`)));
+					totalFilesProcessed += result.filesProcessed;
 				}
 
-				if (!options.continueOnError && errorsEncountered > 0) break;
+				if (!options.continueOnError && result.errorsEncountered > 0) break;
 			} catch (e) {
 				throw new Error(`An error occurred during '${buildStep.name}' step - terminating.\n${e.message}`);
 			}
@@ -190,8 +188,7 @@ export class Builder {
 		return [totalFilesProcessed, totalFilesSkipped, totalErrorsEncountered];
 	}
 
-	/** @returns [filesProcessedCount, filesSkipped, errorsEncountered] */
-	async runBuildStep(workspaceRoot: string, buildStep: BuildStep, variables: ParamsDictionary[], options: BuilderOptions, logOutput: Logger, logError: Logger): Promise<[number, number, number]> {
+	async runBuildStep(workspaceRoot: string, buildStep: BuildStep, variables: ParamsDictionary[], options: BuilderOptions, logOutput: Logger, logError: Logger): Promise<BuildStepResult> {
 		const cancelSource = CancelToken.source();
 		const stepVariableValues: Map<string, string[]> = new Map<string, string[]>();
 		const stepVariableResolver = (name: string, expandOption: ExpandPathsOption) => { return this.resolveVariable(workspaceRoot, name, variables, expandOption, stepVariableValues); };
@@ -321,7 +318,7 @@ export class Builder {
 
 			try {
 				await Promise.all(tasks);
-				return [filesProcessed, filesSkipped, errorsEncountered];
+				return { filesProcessed, filesSkipped, errorsEncountered };
 			} catch (e) {
 				cancelSource.cancel();
 				throw e;
@@ -379,27 +376,18 @@ export class Builder {
 
 			cmdVariables[PV.command] = buildStep.command;
 
-			let commands = cmdVariableResolver(PV.command, ExpandPathsOption.expandAll);
-			//commands = expandMultivalues(workspaceRoot, commands, cmdVariableResolver, ExpandPathsOption.filesOnly); / DO NOT!
-			if (!isArrayOfString(commands)) commands = [commands];
-			commands = unescapeTemplateText(commands);
+			const command = expandTemplate(workspaceRoot, buildStep.command, cmdVariableResolver);
 
 			// TODO: consider trimming paths as well
 			const actionName = buildStep.name;
-			let errorsEncountered = 0;
+			const result = await this.execCommand(workspaceRoot, command, actionName, logOutput, logError, cancelSource.token, options.debug);
 
-			for (const command of commands) {
-				const result = await this.execCommand(workspaceRoot, command, actionName, logOutput, logError, cancelSource.token, options.debug);
-				if (result && result.error) {
-					errorsEncountered++;
-					if (!options.continueOnError) {
-						cancelSource.cancel();
-						return [-1, 0, errorsEncountered]; // [filesProcessedCount, filesSkipped, errorsEncountered]
-					}
-				}
+			if (result && result.error) {
+				if (!options.continueOnError) cancelSource.cancel();
+				return { filesProcessed: -1, filesSkipped: 0, errorsEncountered: 1 };
+			} else {
+				return { filesProcessed: -1, filesSkipped: 0, errorsEncountered: 0 };
 			}
-
-			return [-1, 0, errorsEncountered]; // [filesProcessedCount, filesSkipped, errorsEncountered]
 		}
 	}
 
@@ -408,7 +396,7 @@ export class Builder {
 		values = this.expandMultivalues(workspaceRoot, values, variableResolver, expandOption);
 		return values;
 	}
-	
+
 	// TODO: it is a critical function - revise and test
 	expandMultivalues(workspaceRoot: string, values: string[] | string, variableResolver: VariableResolver, expandOption: ExpandPathsOption): string[] {
 		let newValues: string[] = [];
@@ -593,7 +581,7 @@ export async function setSampleBuildConfig(buildStepsPath: string, configName: s
 			bTypes.push({ name: 'release', params: { buildTypeParams: '-O2 -g0' } });
 			command = 'clang++ -c -std=c++17 ${buildTypeParams} (-I[$${includePath}]) (-D$${defines}) (-include [$${forcedInclude}]) [${filePath}] -o [${outputFile}]';
 			bSteps.push({ name: 'C++ Compile Sample Step', filePattern: '**/*.cpp', outputFile: "${buildOutput}/${fileDirectory}/${fileName}.o", command: command, trimIncludePaths: true });
-			command = 'clang++ -c [$${filePath}] -o [${buildOutput}/main.bin]';
+			command = 'clang++ [$${filePath}] -o [${buildOutput}/main.bin]';
 			bSteps.push({ name: 'C++ Link Sample Step', fileList: '${buildOutput}/**/*.o', command: command });
 			problemMatchers.push('$gcc');
 			break;
@@ -609,7 +597,7 @@ export async function setSampleBuildConfig(buildStepsPath: string, configName: s
 			bTypes.push({ name: 'debug', params: { buildTypeParams: '/MDd /Od /RTCsu /Zi /Fd[${buildOutput}/main.pdb]', linkTypeParams: '/DEBUG', defines: ["$${defines}", "$${debugDefines}"] } });
 			bTypes.push({ name: 'release', params: { buildTypeParams: '/MD /Ox', linkTypeParams: '' } });
 			command = '[${scopeCppSDK}/VC/bin/cl.exe] ${buildTypeParams} /nologo /EHs /GR /GF /W3 /EHsc /FS /c (/I[$${libPaths}]) (/I[$${includePath}]) (/D\"$${defines}\") (/FI[$${forcedInclude}]) [${filePath}] /Fo[${outputFile}]';
-			bSteps.push({ name: 'C++ Compile Sample Step', filePattern: '**/*.cpp', outputFile: "${buildOutput}/${fileDirectory}/${fileName}.o", command: command });
+			bSteps.push({ name: 'C++ Compile Sample Step', filePattern: '**/*.cpp', outputFile: "${buildOutput}/${fileDirectory}/${fileName}.o", command: command, trimIncludePaths: true });
 			command = '[${scopeCppSDK}/VC/bin/link.exe] /NOLOGO ${linkTypeParams} [$${filePath}] /OUT:[${buildOutput}/main.exe] (/LIBPATH:[$${linkLibPaths}])';
 			bSteps.push({ name: 'C++ Link Sample Step', fileList: '${buildOutput}/**/*.o', command: command });
 			problemMatchers.push('$msCompile');
@@ -635,9 +623,12 @@ export async function setSampleBuildConfig(buildStepsPath: string, configName: s
 		// file already exists
 		configs = getJsonObject(buildStepsPath);
 		if (!configs) {
-			throw new Error('Unable to parse build configuration file.');
+			throw new Error(`Unable to parse '${buildStepsPath}' build configuration file.`);
 		}
 		const bConfigs: BuildConfiguration[] = configs.configurations;
+		if (!bConfigs) {
+			throw new Error(`Unable to parse '${buildStepsPath}' build configuration file.`);
+		}
 		const i = bConfigs.findIndex(c => c.name == configName);
 
 		if (i != -1) {

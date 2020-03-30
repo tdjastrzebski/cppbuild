@@ -15,15 +15,13 @@
                 "${workspaceFolder}/out/**/*.js"
             ],
             "args": [
-                //"--help"
+                "--help"
                 //"gcc", "gcc-x64", "-i", "test-cpp/.vscode/c_cpp_build.json"
                 //"msvc", "msvc-x64", "-i", "test-cpp/.vscode/c_cpp_build.json"
                 //"clang", "clang-x64", "-i", "test-cpp/.vscode/c_cpp_build.json"
                 //"gcc", "debug", "-w", "test-cpp", "-c", "-f", "-d"
                 //"msvc", "debug", "-w", "test-cpp", "-c", "-f", "-d"
                 //"clang", "debug", "-w", "test-cpp", "-c", "-f", "-d"
-                //"--help"
-                //"gcc", "debug", "-w", "C:\\Test Projects\\lv_port_stm32f769_disco_sw4stm32", "-c", "-d"
             ]
         },
         {
