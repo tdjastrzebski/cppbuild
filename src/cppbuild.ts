@@ -16,6 +16,7 @@ import { isatty } from 'tty';
 import cmd from 'commander';
 import * as semver from 'semver';
 import * as path from 'path';
+import { checkDirectoryExists } from './cpptools';
 
 const Description = iColor(`Multi-step C/C++ incremental build tool version ${ToolVersion}\nhttps://github.com/tdjastrzebski/cppbuild`);
 const ProcessCwd: string = process.cwd();
@@ -27,7 +28,11 @@ Program
 	.version(ToolVersion, '--version', 'output the current version')
 	.description(Description)
 	.usage('<configuration name> [build type] [options]')
-	.exitOverride();
+	.exitOverride(err => {
+		if (err.exitCode != 0) {
+			console.error(`Use: ${ToolName} --help for a list of available options.`);
+		}
+	});
 Program
 	.arguments('<configuration name> [build type]')
 	.option('-w, --workspace-root [path]', 'VS Code workspace root path (default: the current folder)')
@@ -42,18 +47,17 @@ Program
 	.option('-c, --continue-on-error', 'causes build to continue on execution error')
 	.action(doTask(build));
 
+// TODO: consider defining custom help:
+// Program.on('--help', () => {}
+
 if (process.argv.length <= 2) {
 	// no arguments passed
-	Program.help();
-	process.exit(1);
+	Program.outputHelp();
 } else {
 	try {
 		Program.parse(process.argv);
 	} catch (e) {
-		if (e.code != 'commander.helpDisplayed') {
-			console.error(`Use: ${ToolName} --help for a list of available options.`);
-		}
-		process.exit(e.exitCode);
+		// ignore - handled via exitOverride()
 	}
 }
 
@@ -134,6 +138,13 @@ async function build(configName: string | undefined, buildTypeName: string | und
 			workspaceRoot = ProcessCwd;
 		} else {
 			workspaceRoot = Program.workspaceRoot;
+			if (!path.isAbsolute(workspaceRoot)) {
+				workspaceRoot = path.join(ProcessCwd, workspaceRoot);
+			}
+			if (!await checkDirectoryExists(workspaceRoot)) {
+				console.log(eColor(`Root folder '${workspaceRoot}' does not exist.`));
+				process.exit(1);
+			}
 		}
 		propertiesFile = path.join(workspaceRoot, VscodeFolder, PropertiesFile);
 		buildFile = path.join(workspaceRoot, VscodeFolder, BuildStepsFile);

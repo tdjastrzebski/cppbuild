@@ -203,7 +203,7 @@ export class Builder {
 
 		if ((buildStep.trimIncludePaths || options.trimIncludePaths) && isArrayOfString(stepIncludePaths)) {
 			trimmer = new cppAnalyzer(workspaceRoot);
-			await trimmer.enlistFiles(stepIncludePaths);
+			await trimmer.enlistFilePaths(stepIncludePaths);
 		}
 
 		if (buildStep.filePattern) {
@@ -284,7 +284,7 @@ export class Builder {
 					if (trimmer) {
 						// includePaths trimming is enabled
 						// enlist additional files from path resolved on command level
-						await trimmer.enlistFiles(cmdIncludePaths); // enlist files from additional paths
+						await trimmer.enlistFilePaths(cmdIncludePaths); // enlist files from additional paths
 						forcedInclude.unshift(filePath); // add the file being processed at index 0
 						forcedInclude.forEach((e, i, a) => { a[i] = unescapeTemplateText(e); });
 						// get includePaths for the file being processed and any forcedInclude files
@@ -403,12 +403,13 @@ export class Builder {
 		}
 	}
 
-	resolveAndExpand(workspaceRoot: string, value: PV, variableResolver: VariableResolver, expandOption: ExpandPathsOption): string[] {
-		let values = variableResolver(value, expandOption);
+	resolveAndExpand(workspaceRoot: string, variableName: string, variableResolver: VariableResolver, expandOption: ExpandPathsOption): string[] {
+		let values = variableResolver(variableName, expandOption);
 		values = this.expandMultivalues(workspaceRoot, values, variableResolver, expandOption);
 		return values;
 	}
-
+	
+	// TODO: it is a critical function - revise and test
 	expandMultivalues(workspaceRoot: string, values: string[] | string, variableResolver: VariableResolver, expandOption: ExpandPathsOption): string[] {
 		let newValues: string[] = [];
 		if (!isArrayOfString(values)) values = values ? [values] : [];
@@ -658,7 +659,7 @@ export async function setSampleBuildConfig(buildStepsPath: string, configName: s
 	gParams['buildOutput'] = '${buildDir}/${configName}/${buildTypeName}';
 	gParams['defines'] = ["$${defines}", "UNICODE", "_UNICODE"];
 	gParams['debugDefines'] = ["_DEBUG", "DEBUG"];
-	gParams['includePath'] = ["$${includePath}", "${workspaceFolder}/**"];
+	gParams['includePath'] = ["$${includePath}", "${workspaceRoot}/**"];
 
 	const text = JSON.stringify(configs, null, '\t');
 

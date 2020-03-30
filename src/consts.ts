@@ -19,7 +19,10 @@ export const BuildStepsFileSchema: string = 'c_cpp_build.schema.json';
 export const PropertiesFileSchema: string = 'c_cpp_properties.schema.json';
 /** expression to validate variable list */
 export const VariableList = /^\s*(?:'[^'\\]*(?:\\[\S\s][^'\\]*)*'|[^,'\s\\]*(?:\s+[^,'\s\\]+)*)\s*(?:,\s*(?:'[^'\\]*(?:\\[\S\s][^'\\]*)*'|[^,'\s\\]*(?:\s+[^,'\s\\]+)*)\s*)*$/;
-/** expression to match variable list values
+/**
+ * expression to match variable list values
  * for discussion refer to: https://stackoverflow.com/questions/8493195/how-can-i-parse-a-csv-string-with-javascript-which-contains-comma-in-data
 */
 export const ListValues = /(?!\s*$)\s*(?:'([^'\\]*(?:\\[\S\s][^'\\]*)*)'|([^,'\s\\]*(?:\s+[^,'\s\\]+)*))\s*(?:,|$)/g;
+/** the actual variable name follows more strict pattern - see schema.json file */
+export const VariableName = /^[a-zA-Z0-9_-]+$/;

@@ -6,8 +6,7 @@
 'use strict';
 
 import * as path from 'path';
-import { readLines, elapsedMills, globAsync, normalizePath } from './utils';
-import * as process from 'process';
+import { readLines, globAsync, normalizePath } from './utils';
 import { AsyncMutex } from "@esfx/async-mutex";
 
 /** Class contains methods performing C/C++ static source code files dependency analysis. */
@@ -28,27 +27,35 @@ export class cppAnalyzer {
 		this._root = normalizePath(root);
 	}
 
-	/** Registers paths containing source code files to be analysed */
-	async enlistFiles(includePaths: string[]) {
+	/** Registers file paths containing source code files to be analysed */
+	async enlistFilePaths(includePaths: string[]) {
 		await this._mutex.lock();
 
 		try {
 			if (!this._fileMap) {
 				// initialize on the first call
 				this._fileMap = new Map<string, Set<string>>();
-				await this.enlist(this._root);
 			}
 
-			// read includePaths which do not start with _root
 			for (let includePath of includePaths) {
 				includePath = normalizePath(includePath);
-				if (this._includePaths.includes(includePath)) continue; // skip path - already enlisted
-				if (path.isAbsolute(includePath)) {
-					if (includePath.startsWith(this._root)) continue; // skip paths starting with _root (already enlisted)
-					await this.enlist(includePath);
-				} else {
-					// skip root-relative paths (already enlisted)
+				let enlistPath = includePath;
+
+				if (path.isAbsolute(includePath) && includePath.startsWith(this._root + '/')) {
+					// absolute path starts with 'root'
+					includePath = includePath.substr(this._root.length + 1);
+				} else if (includePath == this._root) {
+					// path is 'root'
+					includePath = '.';
 				}
+
+				if (this._includePaths.includes(includePath)) continue; // skip path - already enlisted
+
+				if (!path.isAbsolute(enlistPath)) {
+					enlistPath = path.join(this._root, enlistPath);
+				}
+
+				await this.enlist(enlistPath);
 				this._includePaths.push(includePath);
 			}
 		} finally {
@@ -57,7 +64,8 @@ export class cppAnalyzer {
 	}
 
 	private async enlist(location: string) {
-		const filePaths = await globAsync('**/*', { cwd: location });
+		//const filePaths = await globAsync('**/*', { cwd: location });
+		const filePaths = await globAsync('*', { cwd: location });
 
 		for (const filePath of filePaths) {
 			const fileName = path.basename(filePath);

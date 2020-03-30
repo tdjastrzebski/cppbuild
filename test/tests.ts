@@ -203,7 +203,7 @@ suite('other tests', () => {
 		const trimmer = new cppAnalyzer(root);
 
 		let start = process.hrtime();
-		await trimmer.enlistFiles(includePaths);
+		await trimmer.enlistFilePaths(includePaths);
 		const initTime = elapsedMills(start) / 1000;
 
 		const files = expandGlob(root, '**/*.{c,cpp}', ExpandPathsOption.filesOnly);

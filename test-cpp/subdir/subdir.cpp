@@ -1,7 +1,7 @@
 #include "helloWorld.h" 
 #include <iostream>
 
-int main()
+int subdir()
 { 
     std::cout << "Hello Geek\n"; 
     helloWorld(); 

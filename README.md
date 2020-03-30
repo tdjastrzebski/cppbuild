@@ -100,6 +100,7 @@ The above variables are available when **filePattern** or **fileList** build ste
     * `-d` option added for debug output.
     * `-i` option added for creating sample build configuration.
     * `-c` option added to continue on errors.
+* 1.3.11 Bug fixes
 
 # Further improvements
 I am certain this tool could be further improved in many ways, including both functionality and code structure. This is the second TypeScript program I have ever written (the first one was "hello world" app).  

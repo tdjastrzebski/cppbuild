@@ -8,7 +8,7 @@
 import { Configuration, ConfigurationJson, checkDirectoryExists, checkFileExists, isArrayOfString } from './cpptools';
 import { replaceAt, makeDirectory, getJsonObject, listObject, matchRecursive, replaceRecursive, unescapeTemplateText, escapeTemplateText, expandGlob, IsMochaRunning, normalizePath } from './utils';
 import { CppParams, GlobalConfiguration, BuildInfo, ExpandPathsOption, VariableResolver } from './interfaces';
-import { BuildStepsFileSchema, PropertiesFileSchema, VariableList, ListValues } from './consts';
+import { BuildStepsFileSchema, PropertiesFileSchema, VariableList, ListValues, VariableName } from './consts';
 import { hasMagic } from "glob";
 import { AsyncMutex } from "@esfx/async-mutex";
 import { deepClone } from './vscode';
@@ -169,14 +169,12 @@ export function expandTemplates(workspaceRoot: string, template: string, variabl
 	}
 }
 
-const variableName = /^[a-zA-Z0-9_-]+$/; // actual variable name follows more strict pattern - see schema.json file
-
 // FIXME: detect circular references
 /** resolves multi-value $${} variable to array of values */
 export function getMultivalues(workspaceRoot: string, variableText: string, variableResolver: VariableResolver, expandOption: ExpandPathsOption): string[] {
 	let values: string[];
 
-	if (variableName.test(variableText)) {
+	if (VariableName.test(variableText)) {
 		// variableText appears to be a variable name
 		const paramValue = variableResolver(variableText, expandOption);
 		if (!paramValue) {
