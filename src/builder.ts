@@ -6,7 +6,7 @@
 'use strict';
 
 import { BuildStepsFileSchema, PropertiesFileSchema, VariableList } from "./consts";
-import { GlobalConfiguration, BuildConfiguration, BuildType, CppParams, BuildStep, BuilderOptions, ParamsDictionary, ExpandPathsOption, CompilerType, Logger, VariableResolver, BuildStepResult } from "./interfaces";
+import { GlobalConfiguration, BuildConfiguration, BuildType, CppParams, BuildStep, BuilderOptions, ParamsDictionary, ExpandPathsOption, CompilerType, Logger, VariableResolver, BuildStepResult, BuildResult } from "./interfaces";
 import { getJsonObject, ExecCmdResult, execCmd, getFileMTime, getFileStatus, elapsedMills, iColor, makeDirectory, dColor, escapeTemplateText, unescapeTemplateText, eColor, kColor, expandGlob } from "./utils";
 import { getCppConfigParams, validateJsonFile, createOutputDirectory, expandTemplate, expandTemplates, variableListParse } from "./processor";
 import { checkFileExists, ConfigurationJson, checkDirectoryExists, isArrayOfString, resolveVariables } from "./cpptools";
@@ -23,8 +23,7 @@ import { setPriority } from "os";
 import { hasMagic } from "glob";
 
 export class Builder {
-	/** @returns [totalFilesProcessed, totalFilesSkipped, totalErrorsEncountered] */
-	async runBuild(workspaceRoot: string, propertiesPath: string | undefined, buildStepsPath: string, configName: string, buildTypeName: string, cliParams: ParamsDictionary, options: BuilderOptions, logOutput: Logger, logError: Logger): Promise<[number, number, number]> {
+	async runBuild(workspaceRoot: string, propertiesPath: string | undefined, buildStepsPath: string, configName: string, buildTypeName: string, cliParams: ParamsDictionary, options: BuilderOptions, logOutput: Logger, logError: Logger): Promise<BuildResult> {
 		const workspaceRootFolderName = path.basename(workspaceRoot);
 		const variables: ParamsDictionary[] = [];
 		const cppVariables: ParamsDictionary = {};
@@ -84,7 +83,7 @@ export class Builder {
 			cppVariables[PV.forcedInclude] = escapeTemplateText(resolveVariables(cppParams.forcedInclude, additionalEnvironment));
 			cppVariables[PV.defines] = escapeTemplateText(resolveVariables(cppParams.defines, additionalEnvironment));
 		} else {
-			// make sure 'includePath', 'forcedInclude' and 'defines' are always present, even not passed from properties file
+			// make sure 'includePath', 'forcedInclude' and 'defines' are always present, even if not passed from properties file
 			cppVariables[PV.includePath] = [];
 			cppVariables[PV.forcedInclude] = [];
 			cppVariables[PV.defines] = [];
@@ -152,6 +151,7 @@ export class Builder {
 			// TODO: check if any of the following step param is already set, throw error if so or resolve these variables ..
 			if (buildStep.name) buildStep.params[PV.stepName] = buildStep.name;
 			if (buildStep.filePattern) buildStep.params[PV.filePattern] = buildStep.filePattern;
+			if (buildStep.directoryPattern) buildStep.params[PV.directoryPattern] = buildStep.directoryPattern;
 			if (buildStep.fileList) buildStep.params[PV.fileList] = buildStep.fileList;
 			if (buildStep.outputDirectory) buildStep.params[PV.outputDirectory] = buildStep.outputDirectory;
 			if (buildStep.outputFile) buildStep.params[PV.outputFile] = buildStep.outputFile;
@@ -159,8 +159,12 @@ export class Builder {
 			// apply command line params last
 			if (cliParams) stepVariables.push(cliParams);
 
-			if (buildStep.filePattern && buildStep.fileList) {
-				throw new Error(`Build step '${buildStep.name}' has both filePattern and fileList variables defined.`);
+			let optionCount = 0;
+			if (buildStep.filePattern) optionCount++;
+			if (buildStep.directoryPattern) optionCount++;
+			if (buildStep.fileList) optionCount++;
+			if (optionCount > 1) {
+				throw new Error(`Build step '${buildStep.name}': ${PV.filePattern}, ${PV.fileList} and ${PV.directoryPattern} options are mutually exclusive.`);
 			}
 
 			try {
@@ -185,7 +189,7 @@ export class Builder {
 			}
 		}
 
-		return [totalFilesProcessed, totalFilesSkipped, totalErrorsEncountered];
+		return { filesProcessed: totalFilesProcessed, filesSkipped: totalFilesSkipped, errorsEncountered: totalErrorsEncountered };
 	}
 
 	async runBuildStep(workspaceRoot: string, buildStep: BuildStep, variables: ParamsDictionary[], options: BuilderOptions, logOutput: Logger, logError: Logger): Promise<BuildStepResult> {
@@ -193,6 +197,7 @@ export class Builder {
 		const stepVariableValues: Map<string, string[]> = new Map<string, string[]>();
 		const stepVariableResolver = (name: string, expandOption: ExpandPathsOption) => { return this.resolveVariable(workspaceRoot, name, variables, expandOption, stepVariableValues); };
 		const stepIncludePaths = this.resolveAndExpand(workspaceRoot, PV.includePath, stepVariableResolver, ExpandPathsOption.directoriesOnly);
+		stepVariableValues.set(PV.includePath, stepIncludePaths); // set includePath resolved
 
 		let trimmer: cppAnalyzer | undefined = undefined;
 		let errorsEncountered = 0;
@@ -323,6 +328,47 @@ export class Builder {
 				cancelSource.cancel();
 				throw e;
 			}
+		} else if (buildStep.directoryPattern) {
+			const directoryPaths = this.resolveAndExpand(workspaceRoot, PV.directoryPattern, stepVariableResolver, ExpandPathsOption.directoriesOnly);
+			let directoriesProcessed = 0;
+
+			for (const directoryPath of directoryPaths) {
+				// run for each folder
+				if (cancelSource.token.signaled) break;
+				const fullDirectoryPath = path.isAbsolute(directoryPath) ? directoryPath : path.join(workspaceRoot, directoryPath);
+				if (!fullDirectoryPath) throw new Error(`Incorrect directory path: '${directoryPath}.'`);
+				if (!await checkDirectoryExists(fullDirectoryPath)) throw new Error(`Directory '${directoryPath}' does not exist.`);
+
+				const stepVariables = deepClone(variables); // copy variables before modifying since files may be processed in parallel
+				const cmdVariables: ParamsDictionary = {};
+				stepVariables.push(cmdVariables);
+				
+				const directoryName: string = path.basename(fullDirectoryPath);
+				// set directory-specific command-level variables
+				cmdVariables[PV.directoryPath] = escapeTemplateText(directoryPath);
+				cmdVariables[PV.fullDirectoryPath] = escapeTemplateText(fullDirectoryPath);
+				cmdVariables[PV.directoryName] = escapeTemplateText(directoryName);
+
+				// create new resolver with new cache
+				const cmdVariableValues: Map<string, string[]> = new Map<string, string[]>();
+				const cmdVariableResolver = (name: string, expandOption: ExpandPathsOption) => { return this.resolveVariable(workspaceRoot, name, stepVariables, expandOption, cmdVariableValues); };
+
+				const command = expandTemplate(workspaceRoot, buildStep.command, cmdVariableResolver);
+				const actionName = buildStep.name + ': ' + directoryPath;
+				if (cancelSource.token.signaled) break;
+				const result = await this.execCommand(workspaceRoot, command, actionName, logOutput, logError, cancelSource.token, options.debug);
+				if (cancelSource.token.signaled) break;
+
+				if (result) {
+					if (result.error) {
+						errorsEncountered++;
+						if (!options.continueOnError) cancelSource.cancel();
+					} else {
+						directoriesProcessed++;
+					}
+				}
+			}
+			return { filesProcessed: directoriesProcessed, filesSkipped: 0, errorsEncountered };
 		} else {
 			// run build step just once
 			const stepVariables = deepClone(variables);
@@ -331,6 +377,7 @@ export class Builder {
 
 			if (buildStep.fileList) {
 				const cmdFilePaths = this.resolveAndExpand(workspaceRoot, PV.fileList, stepVariableResolver, ExpandPathsOption.filesOnly);
+				stepVariableValues.set(PV.fileList, cmdFilePaths);
 				const fileDirectories: string[] = [];
 				const fileNames: string[] = [];
 				const fullFileNames: string[] = [];
@@ -460,9 +507,9 @@ export class Builder {
 			currentValue = process.env[envNameVariable];
 			if (currentValue) currentValue = escapeTemplateText(currentValue);
 		} else {
-			variables.forEach(dictionary => {
+			for (const dictionary of variables) {
 				let newValue = dictionary[variableName];
-				if (newValue === undefined) return; // variable not found at this level
+				if (newValue === undefined) continue; // variable not found at this level
 
 				const resolver = (name: string) => {
 					if (name == variableName) {
@@ -493,7 +540,7 @@ export class Builder {
 					newValue = expandTemplates(workspaceRoot, newValue, resolver, true, expandOption);
 				}
 				currentValue = newValue;
-			});
+			};
 		}
 
 		if (currentValue === undefined) {

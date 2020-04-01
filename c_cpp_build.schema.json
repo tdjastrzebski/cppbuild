@@ -118,6 +118,15 @@
 										"**/*.c"
 									]
 								},
+								"directoryPattern": {
+									"type": "string",
+									"description": "glob directory pattern - command will be called for every directory",
+									"minLength": 1,
+									"pattern": ".",
+									"examples": [
+										"**/"
+									]
+								},
 								"fileList": {
 									"type": "string",
 									"description": "glob file pattern - command will be called once",

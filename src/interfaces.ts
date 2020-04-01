@@ -36,6 +36,7 @@ export interface BuildStep {
 	name: string;
 	params?: ParamsDictionary;
 	filePattern?: string | string[];
+	directoryPattern?: string | string[];
 	fileList?: string | string[];
 	outputDirectory?: string;
 	outputFile?: string;
@@ -69,12 +70,15 @@ export interface BuildStepResult {
 	errorsEncountered: number;
 }
 
+export interface BuildResult extends BuildStepResult {};
+
 export enum PredefinedVariables {
 	stepName = 'stepName',
 	fileList = 'fileList',
 	fileDirectory = 'fileDirectory',
 	filePath = 'filePath',
 	filePattern = 'filePattern',
+	directoryPattern = 'directoryPattern',
 	fileName = 'fileName',
 	fullFileName = 'fullFileName',
 	fileExtension = 'fileExtension',
@@ -89,7 +93,10 @@ export enum PredefinedVariables {
 	outputFile = 'outputFile',
 	outputDirectory = 'outputDirectory',
 	trimIncludePaths = 'trimIncludePaths',
-	command = 'command'
+	command = 'command',
+	directoryPath = 'directoryPath',
+	directoryName = 'directoryName',
+	fullDirectoryPath = 'fullDirectoryPath'
 }
 
 export enum ExpandPathsOption { filesOnly, directoriesOnly, noExpand, expandAll }

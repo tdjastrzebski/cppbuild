@@ -7,7 +7,7 @@
 
 'use strict';
 
-import { getLatestVersion, sleep, elapsedMills, iColor, wColor, eColor, rColor, hColor, kColor, sColor } from './utils';
+import { getLatestVersion, sleep, elapsedMills, iColor, wColor, eColor, rColor, hColor, kColor, sColor, normalizePath } from './utils';
 import { ToolName, ToolVersion, VscodeFolder, BuildStepsFile, PropertiesFile } from './consts';
 import { BuilderOptions, CompilerType, IStringDictionary } from './interfaces';
 import { Builder, setSampleBuildConfig } from './builder';
@@ -146,6 +146,7 @@ async function build(configName: string | undefined, buildTypeName: string | und
 				process.exit(1);
 			}
 		}
+		workspaceRoot = normalizePath(workspaceRoot);
 		propertiesFile = path.join(workspaceRoot, VscodeFolder, PropertiesFile);
 		buildFile = path.join(workspaceRoot, VscodeFolder, BuildStepsFile);
 	} else {
@@ -207,12 +208,9 @@ async function build(configName: string | undefined, buildTypeName: string | und
 		const builder = new Builder();
 		const start = process.hrtime();
 		const result = await builder.runBuild(workspaceRoot, propertiesFile, buildFile, configName!, buildTypeName!, cliExtraParams, options, logBuildOutput, logBuildError);
-		const filesProcessed = result[0];
-		const filesSkipped = result[1];
-		const errorsEncountered = result[2];
 		const timeElapsed = elapsedMills(start) / 1000;
-		const errorsColor = errorsEncountered > 0 ? eColor : kColor;
-		console.log(iColor(`Build steps completed in ${timeElapsed.toFixed(2)}s, ${filesProcessed} file(s) processed, ${filesSkipped} file(s) skipped, ` + errorsColor(`${errorsEncountered} error(s) encountered.`)));
+		const errorsColor = result.errorsEncountered > 0 ? eColor : kColor;
+		console.log(iColor(`Build steps completed in ${timeElapsed.toFixed(2)}s, ${result.filesProcessed} file(s) processed, ${result.filesSkipped} file(s) skipped, ` + errorsColor(`${result.errorsEncountered} error(s) encountered.`)));
 	} else {
 		// create sample config file
 		const filePath = Program.initialize;

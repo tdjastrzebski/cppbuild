@@ -19,6 +19,16 @@
 	},
 	"configurations": [
 		{
+			"name": "list",
+			"buildSteps": [
+				{
+					"name": "create list",
+					"directoryPattern": "$${includePath}",
+					"command": "echo '-I[${fullDirectoryPath}]' >> [${buildDir}/paths.txt]"
+				}
+			]
+		},
+		{
 			"name": "gcc",
 			"buildTypes": [
 				{
