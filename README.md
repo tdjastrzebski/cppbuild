@@ -34,7 +34,7 @@ See the content of the [c_cpp_build.json](test-cpp/.vscode/c_cpp_build.json) fil
 
 Sample build step:
 ```json
-}
+{
   "name": "C++ Compile",
   "filePattern": "**/*.cpp",
   "outputFile": "build/${buildTypeName}/${fileDirectory}/${fileName}.o",
@@ -43,7 +43,7 @@ Sample build step:
 ```
 Sample build type:
 ```json
-}
+{
   "name": "debug",
   "params": { "buildTypeParams": "-O0 -g" }
 }
