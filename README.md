@@ -33,7 +33,7 @@ For more options run: `cppbuild --help`
 See the content of the [c_cpp_build.json](test-cpp/.vscode/c_cpp_build.json) file for a sample build configuration.
 
 Sample build step:
-```json
+```yaml
 {
   "name": "C++ Compile",
   "filePattern": "**/*.cpp",
@@ -42,7 +42,7 @@ Sample build step:
 }
 ```
 Sample build type:
-```json
+```yaml
 {
   "name": "debug",
   "params": { "buildTypeParams": "-O0 -g" }
