@@ -33,16 +33,20 @@ For more options run: `cppbuild --help`
 See the content of the [c_cpp_build.json](test-cpp/.vscode/c_cpp_build.json) file for a sample build configuration.
 
 Sample build step:
-```
-"name": "C++ Compile",
-"filePattern": "**/*.cpp",
-"outputFile": "build/${buildTypeName}/${fileDirectory}/${fileName}.o",
-"command": "g++ -c ${buildTypeParams} (-I[$${includePath}]) (-D$${defines}) [${filePath}] -o [${outputFile}]"
+```json
+}
+  "name": "C++ Compile",
+  "filePattern": "**/*.cpp",
+  "outputFile": "build/${buildTypeName}/${fileDirectory}/${fileName}.o",
+  "command": "g++ -c ${buildTypeParams} (-I[$${includePath}]) (-D$${defines}) [${filePath}] -o [${outputFile}]"
+}
 ```
 Sample build type:
-```
-"name": "debug",
-"params": { "buildTypeParams": "-O0 -g" }
+```json
+}
+  "name": "debug",
+  "params": { "buildTypeParams": "-O0 -g" }
+}
 ```
 
 Here is how it works:
