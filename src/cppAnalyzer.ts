@@ -113,13 +113,54 @@ export class cppAnalyzer {
 		}
 
 		const includeFiles: string[] = [];
+		let inComment: boolean = false;
 
 		// parse file looking for '#include' directives
 		await readLines(filePath, line => {
 			line = line.trimLeft();
+			let commentStart: number = -1;
+			let commentEnd: number = -1;
+			let textStart: number | undefined = inComment ? undefined : 0;
+			let textEnd: number | undefined = undefined;
+			let linePart: string | undefined; // contains the first non-blank, non-comment line part
 
-			if (line.startsWith('#include')) {
-				let includeFile = line.substring('#include'.length).trimLeft();
+			if (!inComment && line.startsWith('//')) return; // ignore this line
+
+			// find first non-blank line part between commented-out blocs
+			for (let i: number = 0; i < line.length - 1; i++) {
+				if (inComment) {
+					commentEnd = line.indexOf('*/', i);
+					if (commentEnd > -1) {
+						inComment = false;
+						i = commentEnd + 1;
+						textStart = commentEnd + 2;
+						textEnd = undefined;
+					} else {
+						break; // no comment-end in this line, read the next line
+					}
+				} else {
+					commentStart = line.indexOf('/*', i);
+					if (commentStart > -1) {
+						inComment = true;
+						textEnd = commentStart;
+						i = commentStart + 1;
+						linePart = this.getLinePart(line, textStart, textEnd);
+						if (linePart != '') break
+					} else {
+						textStart = i;
+						textEnd = line.length;
+						linePart = this.getLinePart(line, textStart, textEnd);
+						break; // this line has no comment-start, stop looking for one
+					}
+				}
+			}
+
+			if (!linePart) return;
+
+			// find included file
+			if (linePart.
+				startsWith('#include')) {
+				let includeFile = linePart.substring('#include'.length).trimLeft();
 
 				if (includeFile.startsWith('"')) {
 					const closingQuote = includeFile.indexOf('"', 1);
@@ -177,6 +218,13 @@ export class cppAnalyzer {
 		}
 
 		return requiredPaths;
+	}
+
+	private getLinePart(line: string, textStart: number | undefined, textEnd: number | undefined): string {
+		if (textEnd == undefined) textEnd = line.length;
+		if (textStart == undefined || textEnd <= textStart) return '';
+		const text: string = line.substring(textStart, textEnd).trim();
+		return text;
 	}
 
 	/** Function returns includePath at which searched file was found, null if file was not found or undefined if file is local and no search path is needed.  */

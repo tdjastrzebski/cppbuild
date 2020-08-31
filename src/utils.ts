@@ -14,7 +14,7 @@ import { ParamsDictionary, ExpandPathsOption } from './interfaces';
 import { CancelToken, CancelSubscription } from "@esfx/async-canceltoken";
 import { isArrayOfString } from './cpptools';
 const detectMocha = require('detect-mocha');
-const XRegExp = require('xregexp');
+import * as xRegExp from 'xregexp';
 export const IsMochaRunning = process.argv[1].endsWith(normalizePath('/node_modules/mocha/bin/mocha')) || detectMocha();
 const ctx = new chalk.Instance({ level: 3 });
 
@@ -189,7 +189,7 @@ export function matchRecursive(text: string, left: string, right: string, flags:
 	let parts: XRegExpPart[];
 	
 	try {
-		parts = XRegExp.matchRecursive(text, left, right, flags, { valueNames: [null, 'left', 'match', 'right'], escapeChar: escapeChar });
+		parts = xRegExp.matchRecursive(text, left, right, flags, { valueNames: [null, 'left', 'match', 'right'], escapeChar: escapeChar });
 	} catch (e) {
 		throw new Error(`${e.message}: '${text}'.`);
 	}

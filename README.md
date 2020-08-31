@@ -33,16 +33,20 @@ For more options run: `cppbuild --help`
 See the content of the [c_cpp_build.json](test-cpp/.vscode/c_cpp_build.json) file for a sample build configuration.
 
 Sample build step:
-```
-"name": "C++ Compile",
-"filePattern": "**/*.cpp",
-"outputFile": "build/${buildTypeName}/${fileDirectory}/${fileName}.o",
-"command": "g++ -c ${buildTypeParams} (-I[$${includePath}]) (-D$${defines}) [${filePath}] -o [${outputFile}]"
+```yaml
+{
+  "name": "C++ Compile",
+  "filePattern": "**/*.cpp",
+  "outputFile": "build/${buildTypeName}/${fileDirectory}/${fileName}.o",
+  "command": "g++ -c ${buildTypeParams} (-I[$${includePath}]) (-D$${defines}) [${filePath}] -o [${outputFile}]"
+}
 ```
 Sample build type:
-```
-"name": "debug",
-"params": { "buildTypeParams": "-O0 -g" }
+```yaml
+{
+  "name": "debug",
+  "params": { "buildTypeParams": "-O0 -g" }
+}
 ```
 
 Here is how it works:
@@ -102,6 +106,7 @@ The above variables are available when **filePattern** or **fileList** build ste
     * `-c` option added to continue on errors.
 * 1.3.11 Bug fixes
 * 1.3.12 TSLint -> ESLint
+* 1.3.14 commented out `#define` directives are correctly ignored, packages updated
 
 # Further improvements
 I am certain this tool could be further improved in many ways, including both functionality and code structure. This is the second TypeScript program I have ever written (the first one was "hello world" app).  
