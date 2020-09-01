@@ -6,7 +6,7 @@
 'use strict';
 
 import { Configuration, ConfigurationJson, checkDirectoryExists, checkFileExists, isArrayOfString } from './cpptools';
-import { replaceAt, makeDirectory, getJsonObject, listObject, matchRecursive, replaceRecursive, unescapeTemplateText, escapeTemplateText, expandGlob, IsMochaRunning, normalizePath } from './utils';
+import { replaceAt, makeDirectory, getJsonObject, listObject, matchRecursive, replaceRecursive, unescapeTemplateText, escapeTemplateText, expandGlob, normalizePath } from './utils';
 import { CppParams, GlobalConfiguration, BuildInfo, ExpandPathsOption, VariableResolver } from './interfaces';
 import { BuildStepsFileSchema, PropertiesFileSchema, VariableList, ListValues, VariableName } from './consts';
 import { hasMagic } from "glob";
@@ -15,6 +15,7 @@ import { deepClone } from './vscode';
 import * as path from 'path';
 import ajv from 'ajv';
 import uniq from 'lodash.uniq';
+import { trace } from 'console';
 
 export function getCppConfigParams(configurationJson: ConfigurationJson, configName: string): CppParams | undefined {
 	const configuration: Configuration | undefined = configurationJson!.configurations.filter((c) => c.name == configName)[0];
@@ -367,8 +368,7 @@ export function validateJsonFile(jsonFile: string, schemaFile: string): string[]
 	const a = new ajv({ allErrors: true, schemaId: "auto" }); // options can be passed, e.g. {allErrors: true}
 	const meta4: any = require('ajv/lib/refs/json-schema-draft-04.json');
 	a.addMetaSchema(meta4);
-	const pathToRoot = IsMochaRunning ? '../' : '../../';
-	const schema: any = require(path.join(pathToRoot, schemaFile));
+	const schema: any = require(path.join(process.cwd(), schemaFile));
 	const validate = a.compile(schema);
 	const data: any = getJsonObject(jsonFile);
 	const valid = validate(data);

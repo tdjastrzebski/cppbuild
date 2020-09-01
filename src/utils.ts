@@ -13,9 +13,7 @@ import { SpawnAsyncResult, spawnAsync, SpawnAsyncError } from './spawnAsync';
 import { ParamsDictionary, ExpandPathsOption } from './interfaces';
 import { CancelToken, CancelSubscription } from "@esfx/async-canceltoken";
 import { isArrayOfString } from './cpptools';
-const detectMocha = require('detect-mocha');
 import * as xRegExp from 'xregexp';
-export const IsMochaRunning = process.argv[1].endsWith(normalizePath('/node_modules/mocha/bin/mocha')) || detectMocha();
 const ctx = new chalk.Instance({ level: 3 });
 
 function color(text: string, red: number, green: number, blue: number, color: (...text: unknown[]) => string): string {
@@ -187,7 +185,7 @@ export function matchRecursive(text: string, left: string, right: string, flags:
 	// see: https://github.com/slevithan/xregexp#xregexpmatchrecursive
 	// see: http://xregexp.com/api/#matchRecursive
 	let parts: XRegExpPart[];
-	
+
 	try {
 		parts = xRegExp.matchRecursive(text, left, right, flags, { valueNames: [null, 'left', 'match', 'right'], escapeChar: escapeChar });
 	} catch (e) {
@@ -283,7 +281,7 @@ export function execCmd(command: string, options: cp.ExecOptions, token = Cancel
 		} catch (e) {
 			reject({ stdout: undefined, stderr: undefined, error: e });
 		}
-		
+
 		subscription = token.subscribe(() => {
 			proc?.kill();
 			reject(); // TODO: throw CancelError ?

@@ -5,10 +5,8 @@
 
 'use strict';
 
-import { IsMochaRunning } from "./utils";
 import path from 'path';
-const pathToRoot = IsMochaRunning ? '../' : '../../';
-const pkg = require(path.join(pathToRoot, 'package.json'));
+const pkg = require(path.join(process.cwd(), 'package.json'));
 
 export const ToolVersion: string = pkg.version;
 export const ToolName: string = pkg.name;

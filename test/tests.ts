@@ -18,7 +18,7 @@ import { ParamsDictionary, ExpandPathsOption } from '../src/interfaces';
 const testRoot = 'c:/temp/cppbuild-test';
 const workspaceRoot = process.cwd();
 const rimraf = require("rimraf");
-const XRegExp = require('xregexp');
+import XRegExp from 'xregexp';
 
 suite('processor tests', () => {
 	test('expandTemplate() test', () => {
