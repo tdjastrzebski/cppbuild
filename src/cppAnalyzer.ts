@@ -113,54 +113,63 @@ export class cppAnalyzer {
 		}
 
 		const includeFiles: string[] = [];
-		let inComment: boolean = false;
+		let inCommentBlock: boolean = false;
 
 		// parse file looking for '#include' directives
 		await readLines(filePath, line => {
 			line = line.trimLeft();
-			let commentStart: number = -1;
-			let commentEnd: number = -1;
-			let textStart: number | undefined = inComment ? undefined : 0;
-			let textEnd: number | undefined = undefined;
-			let linePart: string | undefined; // contains the first non-blank, non-comment line part
-
-			if (!inComment && line.startsWith('//')) return; // ignore this line
+			let commentBlockStart: number = -1;
+			let commentBlockEnd: number = -1;
+			let linePartStart: number | undefined = inCommentBlock ? undefined : 0;
+			let linePartEnd: number | undefined = undefined;
+			let linePartText: string | undefined; // contains the first non-blank, non-comment line part
 
 			// find first non-blank line part between commented-out blocs
 			for (let i: number = 0; i < line.length - 1; i++) {
-				if (inComment) {
-					commentEnd = line.indexOf('*/', i);
-					if (commentEnd > -1) {
-						inComment = false;
-						i = commentEnd + 1;
-						textStart = commentEnd + 2;
-						textEnd = undefined;
+				if (inCommentBlock) {
+					commentBlockEnd = line.indexOf('*/', i);
+
+					if (commentBlockEnd > -1) {
+						inCommentBlock = false;
+						i = commentBlockEnd + 1;
+						linePartStart = commentBlockEnd + 2;
+						linePartEnd = undefined;
 					} else {
 						break; // no comment-end in this line, read the next line
 					}
 				} else {
-					commentStart = line.indexOf('/*', i);
-					if (commentStart > -1) {
-						inComment = true;
-						textEnd = commentStart;
-						i = commentStart + 1;
-						linePart = this.getLinePart(line, textStart, textEnd);
-						if (linePart != '') break
+					// not in comment block
+					commentBlockStart = line.indexOf('/*', i);
+					const lineCommentStart: number = line.indexOf('//', i);
+
+					if (commentBlockStart > -1 && (lineCommentStart == -1 || commentBlockStart < lineCommentStart)) {
+						// block comment occurs first
+						inCommentBlock = true;
+						linePartEnd = commentBlockStart;
+						i = commentBlockStart + 1;
+						linePartText = this.getLinePartText(line, linePartStart, linePartEnd);
+						if (linePartText != '') break; // skip the rest of the line if this part is non-blank
+					} else if (lineCommentStart > -1 && (commentBlockStart == -1 || lineCommentStart < commentBlockStart)) {
+						// line comment occurs first
+						inCommentBlock = false; // FALSE since line comment does not continue to the next line
+						linePartEnd = lineCommentStart;
+						linePartText = this.getLinePartText(line, linePartStart, linePartEnd);
+						break; // unconditionally skip the rest of the line
 					} else {
-						textStart = i;
-						textEnd = line.length;
-						linePart = this.getLinePart(line, textStart, textEnd);
+						linePartStart = i;
+						linePartEnd = line.length;
+						linePartText = this.getLinePartText(line, linePartStart, linePartEnd);
 						break; // this line has no comment-start, stop looking for one
 					}
 				}
 			}
 
-			if (!linePart) return;
+			if (!linePartText) return;
 
 			// find included file
-			if (linePart.
+			if (linePartText.
 				startsWith('#include')) {
-				let includeFile = linePart.substring('#include'.length).trimLeft();
+				let includeFile = linePartText.substring('#include'.length).trimLeft();
 
 				if (includeFile.startsWith('"')) {
 					const closingQuote = includeFile.indexOf('"', 1);
@@ -220,7 +229,7 @@ export class cppAnalyzer {
 		return requiredPaths;
 	}
 
-	private getLinePart(line: string, textStart: number | undefined, textEnd: number | undefined): string {
+	private getLinePartText(line: string, textStart: number | undefined, textEnd: number | undefined): string {
 		if (textEnd == undefined) textEnd = line.length;
 		if (textStart == undefined || textEnd <= textStart) return '';
 		const text: string = line.substring(textStart, textEnd).trim();
