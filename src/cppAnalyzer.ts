@@ -27,7 +27,7 @@ export class cppAnalyzer {
 		this._root = normalizePath(root);
 	}
 
-	/** Registers file paths containing source code files to be analysed */
+	/** Enlists file paths containing source code files to be analysed */
 	async enlistFilePaths(includePaths: string[]) {
 		await this._mutex.lock();
 
@@ -82,7 +82,7 @@ export class cppAnalyzer {
 		}
 	}
 
-	/** Function returns subset of the previously enlisted paths required by a given file or null if file was not found. */
+	/** Returns the 'include' paths required to compile a given file - a subset of the previously enlisted 'include' paths required by a given file or null, if file was not found. */
 	async getPaths(fileLocation: string, file: string): Promise<string[] | null> {
 		fileLocation = normalizePath(fileLocation);
 		await this._mutex.lock();
@@ -166,9 +166,8 @@ export class cppAnalyzer {
 
 			if (!linePartText) return;
 
-			// find included file
-			if (linePartText.
-				startsWith('#include')) {
+			// store 'included' file name
+			if (linePartText.startsWith('#include')) {
 				let includeFile = linePartText.substring('#include'.length).trimLeft();
 
 				if (includeFile.startsWith('"')) {
@@ -236,7 +235,7 @@ export class cppAnalyzer {
 		return text;
 	}
 
-	/** Function returns includePath at which searched file was found, null if file was not found or undefined if file is local and no search path is needed.  */
+	/** Returns includePath at which searched file was found, null if file was not found or undefined if file is local and no search path is needed.  */
 	private async findInclFile(root: string, location: string, searchedFile: string): Promise<string | undefined | null> {
 		const fileName = path.basename(searchedFile);
 		const paths = this._fileMap!.get(fileName);
