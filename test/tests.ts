@@ -41,7 +41,7 @@ suite('processor tests', () => {
 		const escaped = 'C:\\\\Program Files \\(x86\\)\\\\';
 		const params: ParamsDictionary = { t1: [escaped, escaped] };
 		const actual = expandTemplate(workspaceRoot, '[$${t1}]', (name) => lookUpVariable(name, params));
-		assert.equal(actual, '"C:\\Program Files (x86)\\" "C:\\Program Files (x86)\\"');
+		assert.equal(actual, '"C:/Program Files (x86)/" "C:/Program Files (x86)/"');
 	});
 	test('expandTemplate() test', () => {
 		const expected = '[a] b {c}d (1) { e$f ${g}), \\h \'i\' "j"';
