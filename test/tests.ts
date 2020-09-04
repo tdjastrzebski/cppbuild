@@ -19,6 +19,7 @@ const testRoot = 'c:/temp/cppbuild-test';
 const workspaceRoot = process.cwd();
 const rimraf = require("rimraf");
 import XRegExp from 'xregexp';
+import { PathToRoot } from '../src/consts';
 
 suite('processor tests', () => {
 	test('expandTemplate() test', () => {
@@ -238,12 +239,12 @@ suite('other tests', () => {
 		//console.log(wColor(`c1: ${c1}, c2: ${c2}, c0: ${c0}s, nf: ${notFoundCount}`));
 	});
 	test('validateJsonFile test', () => {
-		let errors = validateJsonFile('test-cpp/.vscode/c_cpp_build.json', BuildStepsFileSchema);
+		let errors = validateJsonFile('test-cpp/.vscode/c_cpp_build.json', path.join(PathToRoot, BuildStepsFileSchema));
 		if (errors) {
 			console.log(`XX file schema validation error(s).\n${(<string[]>errors).join('\n\n')}`);
 		} else { console.log('no errors'); }
 
-		errors = validateJsonFile('test-cpp/.vscode/c_cpp_properties.json', PropertiesFileSchema);
+		errors = validateJsonFile('test-cpp/.vscode/c_cpp_properties.json', path.join(PathToRoot, PropertiesFileSchema));
 		if (errors) {
 			console.log(`XX file schema validation error(s).\n${(<string[]>errors).join('\n\n')}`);
 		} else { console.log('no errors'); }
