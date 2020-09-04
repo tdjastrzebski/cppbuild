@@ -8,7 +8,7 @@
 import { Configuration, ConfigurationJson, checkDirectoryExists, checkFileExists, isArrayOfString } from './cpptools';
 import { replaceAt, makeDirectory, getJsonObject, listObject, matchRecursive, replaceRecursive, unescapeTemplateText, escapeTemplateText, expandGlob, normalizePath } from './utils';
 import { CppParams, GlobalConfiguration, BuildInfo, ExpandPathsOption, VariableResolver } from './interfaces';
-import { BuildStepsFileSchema, PropertiesFileSchema, VariableList, ListValues, VariableName } from './consts';
+import { BuildStepsFileSchema, PropertiesFileSchema, VariableList, ListValues, VariableName, PathToRoot } from './consts';
 import { hasMagic } from "glob";
 import { AsyncMutex } from "@esfx/async-mutex";
 import { deepClone } from './vscode';
@@ -304,7 +304,7 @@ export async function getBuildInfos(buildStepsPath: string, propertiesPath?: str
 			throw new Error(`'${propertiesPath}' file not found.`);
 		}
 
-		const errors = validateJsonFile(propertiesPath, PropertiesFileSchema);
+		const errors = validateJsonFile(propertiesPath, path.join(PathToRoot, PropertiesFileSchema));
 
 		if (errors) {
 			throw new Error(`'${propertiesPath}' file schema validation error(s).\n${(<string[]>errors).join('\n\n')}`);
@@ -327,7 +327,7 @@ export async function getBuildInfos(buildStepsPath: string, propertiesPath?: str
 		throw new Error(`'${buildStepsPath}' file read problem.`);
 	}
 
-	let errors = validateJsonFile(buildStepsPath, BuildStepsFileSchema);
+	let errors = validateJsonFile(buildStepsPath, path.join(PathToRoot, BuildStepsFileSchema));
 	if (errors) {
 		throw new Error(`'${buildStepsPath}' file schema validation error(s).\n${(<string[]>errors).join('\n\n')}`);
 	}
@@ -368,7 +368,7 @@ export function validateJsonFile(jsonFile: string, schemaFile: string): string[]
 	const a = new ajv({ allErrors: true, schemaId: "auto" }); // options can be passed, e.g. {allErrors: true}
 	const meta4: any = require('ajv/lib/refs/json-schema-draft-04.json');
 	a.addMetaSchema(meta4);
-	const schema: any = require(path.join(process.cwd(), schemaFile));
+	const schema: any = require(schemaFile);
 	const validate = a.compile(schema);
 	const data: any = getJsonObject(jsonFile);
 	const valid = validate(data);

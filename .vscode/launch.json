@@ -19,11 +19,12 @@
                 //"gcc", "gcc-x64", "-i", "test-cpp/.vscode/c_cpp_build.json"
                 //"msvc", "msvc-x64", "-i", "test-cpp/.vscode/c_cpp_build.json"
                 //"clang", "clang-x64", "-i", "test-cpp/.vscode/c_cpp_build.json"
-                //"gcc", "debug", "-w", "test-cpp", "-c", "-f", "-d"
-                "msvc", "debug", "-w", "test-cpp", "-c", "-f", "-d"
+                "gcc", "debug", "-w", "test-cpp", "-c", "-f", "-d"
+                //"msvc", "debug", "-w", "test-cpp", "-c", "-f", "-d"
                 //"clang", "debug", "-w", "test-cpp", "-c", "-f", "-d"
                 //"list", "-w", "test-cpp", "-d", "-p"
                 //"gcc", "debug", "-c", "-f", "-d", "-w", "C:/Test Projects/mbed-os-example-blinky",
+                //"--version"
             ]
         },
         {
@@ -36,7 +37,7 @@
                 "-u", "tdd",
                 "--timeout", "999999",
                 "--colors", "--recursive",
-                "${workspaceFolder}/test/**/*.ts"
+                "${workspaceFolder}/out/test"
             ],
             "internalConsoleOptions": "neverOpen",
             "console": "integratedTerminal"

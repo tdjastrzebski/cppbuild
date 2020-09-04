@@ -5,7 +5,7 @@
 
 'use strict';
 
-import { BuildStepsFileSchema, PropertiesFileSchema, VariableList } from "./consts";
+import { BuildStepsFileSchema, PropertiesFileSchema, VariableList, PathToRoot } from "./consts";
 import { GlobalConfiguration, BuildConfiguration, BuildType, CppParams, BuildStep, BuilderOptions, ParamsDictionary, ExpandPathsOption, CompilerType, Logger, VariableResolver, BuildStepResult, BuildResult } from "./interfaces";
 import { getJsonObject, ExecCmdResult, execCmd, getFileMTime, getFileStatus, elapsedMills, iColor, makeDirectory, dColor, escapeTemplateText, unescapeTemplateText, eColor, kColor, expandGlob, normalizePath } from "./utils";
 import { getCppConfigParams, validateJsonFile, createOutputDirectory, expandTemplate, expandTemplates, variableListParse } from "./processor";
@@ -51,7 +51,7 @@ export class Builder {
 		let cppParams: CppParams | undefined;
 
 		if (propertiesPath) {
-			let errors = validateJsonFile(propertiesPath, PropertiesFileSchema);
+			let errors = validateJsonFile(propertiesPath, path.join(PathToRoot, PropertiesFileSchema));
 			if (errors) {
 				throw new Error(`'${propertiesPath}' file schema validation error(s).\n${(<string[]>errors).join('\n\n')}`);
 			}
@@ -94,7 +94,7 @@ export class Builder {
 			throw new Error(`Build steps file '${buildStepsPath}' not found.`);
 		}
 
-		let errors = validateJsonFile(buildStepsPath, BuildStepsFileSchema);
+		let errors = validateJsonFile(buildStepsPath, path.join(PathToRoot, BuildStepsFileSchema));
 		if (errors) {
 			throw new Error(`'${buildStepsPath}' file schema validation error(s).\n${(<string[]>errors).join('\n\n')}`);
 		}
@@ -330,7 +330,7 @@ export class Builder {
 		} else if (buildStep.directoryPattern) {
 			const directoryPaths = this.resolveAndExpand(workspaceRoot, PV.directoryPattern, stepVariableResolver, ExpandPathsOption.directoriesOnly);
 			let directoriesProcessed = 0;
-			
+
 			const stepVariables = deepClone(variables); // copy variables before modifying since files may be processed in parallel
 			const cmdVariables: ParamsDictionary = {};
 			stepVariables.push(cmdVariables);
@@ -342,7 +342,7 @@ export class Builder {
 				fullDirectoryPath = normalizePath(fullDirectoryPath);
 				if (!fullDirectoryPath) throw new Error(`Incorrect directory path: '${directoryPath}.'`);
 				if (!await checkDirectoryExists(fullDirectoryPath)) throw new Error(`Directory '${directoryPath}' does not exist.`);
-				
+
 				const directoryName: string = path.basename(fullDirectoryPath);
 				// set directory-specific command-level variables
 				cmdVariables[PV.directoryPath] = escapeTemplateText(directoryPath);

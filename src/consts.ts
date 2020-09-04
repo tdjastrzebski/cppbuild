@@ -4,10 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 'use strict';
-
-import path from 'path';
-const pkg = require(path.join(process.cwd(), 'package.json'));
-
+import * as path from 'path';
+export const PathToRoot = '../../';
+const pkg = require(path.join(PathToRoot, 'package.json'));
 export const ToolVersion: string = pkg.version;
 export const ToolName: string = pkg.name;
 export const VscodeFolder: string = '.vscode';
