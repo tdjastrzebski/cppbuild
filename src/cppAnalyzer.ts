@@ -18,8 +18,10 @@ export class cppAnalyzer {
 	/** Maps file path to its dependencies */
 	private _fileDependencies = new Map<string, Set<string>>();
 	private readonly _mutex: AsyncMutex = new AsyncMutex();
-	private readonly _root: string;
+	private readonly _rootFolder: string;
 	private readonly _includePaths: string[] = [];
+	private _allDependentsMap = new Map<string, Set<string> | null>();
+	private _dependentsMap = new Map<string, Set<string>>();
 
 	/** Maps file path to paths where file dependencies are located. Null value indicates missing file. */
 	get fileRequiredPaths(): Map<string, Set<string> | null> {
@@ -32,7 +34,7 @@ export class cppAnalyzer {
 	}
 
 	public constructor(root: string) {
-		this._root = normalizePath(root);
+		this._rootFolder = normalizePath(root);
 	}
 
 	/** Enlists file paths containing source code files to be analysed */
@@ -49,10 +51,10 @@ export class cppAnalyzer {
 				includePath = normalizePath(includePath);
 				let enlistPath = includePath;
 
-				if (path.isAbsolute(includePath) && includePath.startsWith(this._root + '/')) {
+				if (path.isAbsolute(includePath) && includePath.startsWith(this._rootFolder + '/')) {
 					// absolute path starts with 'root'
-					includePath = includePath.substr(this._root.length + 1);
-				} else if (includePath == this._root) {
+					includePath = includePath.substr(this._rootFolder.length + 1);
+				} else if (includePath == this._rootFolder) {
 					// path is 'root'
 					includePath = '.';
 				}
@@ -60,7 +62,7 @@ export class cppAnalyzer {
 				if (this._includePaths.includes(includePath)) continue; // skip path - already enlisted
 
 				if (!path.isAbsolute(enlistPath)) {
-					enlistPath = path.join(this._root, enlistPath);
+					enlistPath = path.join(this._rootFolder, enlistPath);
 				}
 
 				await this.enlistFiles(enlistPath);
@@ -86,6 +88,66 @@ export class cppAnalyzer {
 				paths.add(fullPath);
 				this._fileLocations!.set(fileName, paths);
 			}
+		}
+	}
+
+	async resolveAllFileDependencies(files: string[]) {
+		for (let file of files) {
+			const dirname = path.dirname(file);
+			const basename = path.basename(file);
+			await this._getPaths(dirname, basename); // parse files
+			// TODO: create another version of _getPaths() which.. does not return paths and takes full filename
+		};
+
+		this._dependentsMap = new Map<string, Set<string>>(); // reinitialize
+
+		for (const [dependent, includes] of this._fileDependencies.entries()) {
+			includes.forEach(include => {
+				let dependencies = this._dependentsMap.get(include);
+				if (!dependencies) {
+					dependencies = new Set<string>();
+					dependencies.add(dependent);
+					this._dependentsMap.set(include, dependencies);
+				} else {
+					if (!dependencies.has(dependent)) dependencies.add(dependent);
+				}
+			});
+		};
+
+		this._allDependentsMap = new Map<string, Set<string> | null>(); // reinitialize cache
+	}
+
+	removeRootFromPath(file: string): string {
+		file = normalizePath(file);
+		if (path.isAbsolute(file) && file.startsWith(this._rootFolder + '/')) {
+			// absolute path starts with 'root'
+			file = file.substr(this._rootFolder.length + 1);
+		}
+		return file;
+	}
+
+	getAllFileDependents(file: string): Set<string> | null | undefined {
+		if (!this._allDependentsMap) this._allDependentsMap = new Map<string, Set<string>>();
+		let allDependents = this._allDependentsMap.get(file);
+		if (allDependents || allDependents === null) return allDependents; // dependents found and cached or being analyzed
+		this._allDependentsMap.set(file, null); // signal to subsequent calls that this file is being analyzed
+
+		allDependents = this._dependentsMap.get(file); // get immediate dependents
+
+		if (allDependents && allDependents.size > 0) {
+			let allChildDependents = new Set<string>();
+
+			for (const dependent of allDependents) {
+				const childDependents = this.getAllFileDependents(dependent);
+				if (!childDependents || childDependents == null) continue; // no child dependents or this file is already being analyzed
+				allChildDependents = new Set([...allChildDependents, ...childDependents]); // append child dependents
+			}
+
+			allDependents = new Set([...allDependents, ...allChildDependents]);
+			this._allDependentsMap.set(file, allDependents);
+			return allDependents;
+		} else {
+			return undefined; // file has no dependents
 		}
 	}
 
@@ -129,7 +191,7 @@ export class cppAnalyzer {
 
 		for (const includedFile of includeFiles) {
 			let locationFilePath = path.join(fileLocation, includedFile); // set to current location - file may not exist here
-			const includePath = await this.findInclFile(this._root, locationFilePath, includedFile);
+			const includePath = await this.findInclFile(this._rootFolder, locationFilePath, includedFile);
 
 			if (includePath) {
 				// required included path found
@@ -138,7 +200,7 @@ export class cppAnalyzer {
 				if (path.isAbsolute(includePath)) {
 					locationFilePath = path.join(includePath, includedFile);
 				} else {
-					locationFilePath = path.join(this._root, includePath, includedFile);
+					locationFilePath = path.join(this._rootFolder, includePath, includedFile);
 				}
 
 				fileDependencies.add(locationFilePath);
