@@ -40,7 +40,8 @@
                 "${workspaceFolder}/out/test"
             ],
             "internalConsoleOptions": "neverOpen",
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "preLaunchTask": "npm build",
         }
     ]
 }

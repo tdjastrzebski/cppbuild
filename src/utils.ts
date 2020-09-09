@@ -404,9 +404,11 @@ export function expandGlob(workspaceRoot: string, pattern: string, expandOption:
 			// make sure pattern ends with '/' - this causes only directories to be matched
 			if (!pattern.endsWith('/') && !pattern.endsWith('\\')) pattern += '/';
 		}
+		
 		const cwd = path.isAbsolute(pattern) ? '/' : workspaceRoot; // do not return full path if at workspaceRoot
 		const nodir = (expandOption === ExpandPathsOption.filesOnly);
 		const paths = globSync(pattern, { cwd: cwd, nodir: nodir });
+
 		paths.forEach((path, index, paths) => {
 			if (path.endsWith('/') || path.endsWith('\\')) {
 				// remove trailing \ /

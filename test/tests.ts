@@ -10,7 +10,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as process from 'process';
 import chalk from 'chalk';
-import { getBuildInfos, validateJsonFile, expandTemplate, getMultivalues, variableListParse, variableListJoin } from '../src/processor';
+import { getBuildInfos, validateJsonFile, expandTemplate, getMultivalues, variableListParse, variableListJoin, getCppConfigParams } from '../src/processor';
 import { elapsedMills, dColor, unescapeTemplateText, escapeTemplateText, expandGlob, lookUpVariable } from '../src/utils';
 import { BuildStepsFileSchema, PropertiesFileSchema, PropertiesFile, BuildStepsFile } from '../src/api';
 import { cppAnalyzer } from '../src/cppAnalyzer';
@@ -20,6 +20,108 @@ const workspaceRoot = process.cwd();
 const rimraf = require("rimraf");
 import XRegExp from 'xregexp';
 import { PathToRoot } from '../src/consts';
+import uniq from 'lodash.uniq';
+import { deepClone } from '../src/vscode';
+
+suite('static analysis tests', () => {
+	test('analyse dependencies', async () => {
+		const rootFolder = 'C:/Projects/Tomasz Jastrzebski/DISCO-F769NI_LCD_demo';
+		let cppParams = await getCppConfigParams(path.join(rootFolder, '.vscode/c_cpp_properties.json'), 'gcc');
+		let includePaths: string[] = [];
+
+		cppParams?.includePath?.forEach(includePath => {
+			let newPaths = expandGlob(rootFolder, includePath, ExpandPathsOption.directoriesOnly);
+			includePaths = uniq([...includePaths, ...newPaths]);
+		});
+
+		console.log(includePaths.length);
+		const analyzer: cppAnalyzer = new cppAnalyzer(rootFolder);
+		await analyzer.enlistFilePaths(includePaths);
+		let files = expandGlob(rootFolder, '**/*.c', ExpandPathsOption.filesOnly);
+		console.log(files.length);
+
+		for (const file of files) {
+			await analyzer.getPaths(rootFolder, file);
+		};
+
+		let fileDependencies = analyzer.fileDependencies!;
+		console.log(fileDependencies.size);
+		const dependencyMap = new Map<string, Set<string>>();
+
+		for (const [dependent, includes] of fileDependencies.entries()) {
+			includes.forEach(include => {
+				let dependencies = dependencyMap.get(include);
+				if (!dependencies) {
+					dependencies = new Set<string>();
+					dependencies.add(dependent);
+					dependencyMap.set(include, dependencies);
+				} else {
+					if (!dependencies.has(dependent)) dependencies.add(dependent);
+				}
+			});
+		};
+
+		console.log('files and their dependents')
+		for (const [file, dependents] of dependencyMap.entries()) {
+			console.log(file);
+			dependents.forEach(dependent => {
+				console.log('   +-' + dependent);
+			});
+		}
+
+		console.log('files with no dependencies')
+		for (const [file, dependencies] of fileDependencies.entries()) {
+			if (dependencies.size > 0) continue;
+			console.log(file);
+		}
+
+		const allDependentsMap = new Map<string, Set<string>>(); // created outside getChildDependents() to use as a shared cache
+		const file = 'C:\\Projects\\Tomasz Jastrzebski\\DISCO-F769NI_LCD_demo\\BSP_DISCO_F769NI\\Utilities\\Fonts\\fonts.h';
+		//const file = 'C:\\Projects\\Tomasz Jastrzebski\\DISCO-F769NI_LCD_demo\\mbed\\platform\\mbed_wait_api.h';
+		//const file = 'C:\\Projects\\Tomasz Jastrzebski\\DISCO-F769NI_LCD_demo\\mbed\\platform\\mbed_preprocessor.h';
+		const allDependents = getAllDependents(file, dependencyMap, allDependentsMap);
+		console.log('all file dependents')
+		for (const dependent of allDependents!) {
+			console.log(dependent);
+		}
+
+		console.log('mass test');
+		for (const file of fileDependencies.keys()) {
+			const allDependents = getAllDependents(file, dependencyMap, allDependentsMap);
+			
+			if (!allDependents) {
+				console.log(`0 ${file}`);
+			} else {
+				console.log(`${allDependents.size} ${file}`);
+			}
+		}
+	});
+});
+
+function getAllDependents(file: string, dependencyMap: Map<string, Set<string>>, allDependentsMap: Map<string, Set<string> | null>): Set<string> | null | undefined {
+	if (!allDependentsMap) allDependentsMap = new Map<string, Set<string>>();
+	let allDependents = allDependentsMap.get(file);
+	if (allDependents || allDependents === null) return allDependents; // dependents found and cached or being analyzed
+	allDependentsMap.set(file, null); // signal to subsequent calls that this file is being analyzed
+
+	allDependents = dependencyMap.get(file); // get immediate dependents
+
+	if (allDependents && allDependents.size > 0) {
+		let allChildDependents = new Set<string>();
+		
+		for (const dependent of allDependents) {
+			const childDependents = getAllDependents(dependent, dependencyMap, allDependentsMap);
+			if (!childDependents || childDependents == null) continue; // no child dependents or this file is already being analyzed
+			allChildDependents = new Set([...allChildDependents, ...childDependents]); // append child dependents
+		}
+		
+		allChildDependents = new Set([...allDependents, ...allChildDependents]);
+		allDependentsMap.set(file, allChildDependents);
+		return allDependents;
+	} else {
+		return undefined; // file has no dependents
+	}
+}
 
 suite('processor tests', () => {
 	test('expandTemplate() test', () => {
@@ -216,7 +318,7 @@ suite('other tests', () => {
 			const fileIncludes = await trimmer.getPaths(fileLocation, fileName);
 
 			if (fileName == 'stm32f7xx.h') {
-				const o = trimmer.pathMap.get('object.h'); // device.h
+				const o = trimmer.fileRequiredPaths.get('object.h'); // device.h
 				console.log('');
 			}
 
@@ -226,7 +328,7 @@ suite('other tests', () => {
 		let maxCount = 0;
 		let notFoundCount = 0;
 
-		trimmer.pathMap.forEach(path => {
+		trimmer.fileRequiredPaths.forEach(path => {
 			if (path == null) {
 				notFoundCount++;
 			} else {
@@ -234,7 +336,7 @@ suite('other tests', () => {
 			}
 		});
 
-		console.log(dColor(`initTime: ${initTime.toFixed(2)}, process time: ${processTime.toFixed(2)}s, max path count: ${maxCount}, files: ${trimmer.pathMap.size}, not found: ${notFoundCount}`));
+		console.log(dColor(`initTime: ${initTime.toFixed(2)}, process time: ${processTime.toFixed(2)}s, max path count: ${maxCount}, files: ${trimmer.fileRequiredPaths.size}, not found: ${notFoundCount}`));
 		//console.log(wColor(`element count: ${inclPaths.size}, max count: ${maxCount}, time: ${elapsed.toFixed(2)}s`));
 		//console.log(wColor(`c1: ${c1}, c2: ${c2}, c0: ${c0}s, nf: ${notFoundCount}`));
 	});

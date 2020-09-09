@@ -7,7 +7,7 @@
 
 import { Configuration, ConfigurationJson, checkDirectoryExists, checkFileExists, isArrayOfString } from './cpptools';
 import { replaceAt, makeDirectory, getJsonObject, listObject, matchRecursive, replaceRecursive, unescapeTemplateText, escapeTemplateText, expandGlob, normalizePath } from './utils';
-import { CppParams, GlobalConfiguration, BuildInfo, ExpandPathsOption, VariableResolver } from './interfaces';
+import { CppParams, GlobalConfiguration, BuildInfo, ExpandPathsOption, VariableResolver, BuildType, BuildConfiguration } from './interfaces';
 import { BuildStepsFileSchema, PropertiesFileSchema, VariableList, ListValues, VariableName, PathToRoot } from './consts';
 import { hasMagic } from "glob";
 import { AsyncMutex } from "@esfx/async-mutex";
@@ -17,12 +17,47 @@ import ajv from 'ajv';
 import uniq from 'lodash.uniq';
 import { trace } from 'console';
 
-export function getCppConfigParams(configurationJson: ConfigurationJson, configName: string): CppParams | undefined {
+export async function getCppConfigParams(propertiesPath: string, configName: string): Promise<CppParams | undefined> {
+	if (propertiesPath && await checkFileExists(propertiesPath) === false) {
+		throw new Error(`C/C++ properties file '${propertiesPath}' not found.`);
+	}
+
+	let errors = validateJsonFile(propertiesPath, path.join(PathToRoot, PropertiesFileSchema));
+
+	if (errors) {
+		throw new Error(`'${propertiesPath}' file schema validation error(s).\n${(<string[]>errors).join('\n\n')}`);
+	}
+
+	const configurationJson: ConfigurationJson | undefined = getJsonObject(propertiesPath);
+
+	if (!configurationJson) {
+		throw new Error(`Configuration '${configName}' not found in '${propertiesPath}' file.`);
+	}
+
+	if (configurationJson.version !== 4) {
+		throw new Error(`Unsupported C/C++ properties file version '${configurationJson.version}'.`);
+	}
+
 	const configuration: Configuration | undefined = configurationJson!.configurations.filter((c) => c.name == configName)[0];
 	if (!configuration) return undefined;
 
 	const params = { forcedInclude: configuration.forcedInclude, includePath: configuration.includePath, defines: configuration.defines };
 	return params;
+}
+
+export async function getGlobalConfig(buildStepsPath: string): Promise<GlobalConfiguration | undefined> {
+	if (await checkFileExists(buildStepsPath) === false) {
+		throw new Error(`Build steps file '${buildStepsPath}' not found.`);
+	}
+
+	let errors = validateJsonFile(buildStepsPath, path.join(PathToRoot, BuildStepsFileSchema));
+
+	if (errors) {
+		throw new Error(`'${buildStepsPath}' file schema validation error(s).\n${(<string[]>errors).join('\n\n')}`);
+	}
+
+	const globalConfig: GlobalConfiguration | undefined = getJsonObject(buildStepsPath);
+	return globalConfig;
 }
 
 const _mutex: AsyncMutex = new AsyncMutex();

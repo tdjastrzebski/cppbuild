@@ -8,7 +8,7 @@
 import { BuildStepsFileSchema, PropertiesFileSchema, VariableList, PathToRoot } from "./consts";
 import { GlobalConfiguration, BuildConfiguration, BuildType, CppParams, BuildStep, BuilderOptions, ParamsDictionary, ExpandPathsOption, CompilerType, Logger, VariableResolver, BuildStepResult, BuildResult } from "./interfaces";
 import { getJsonObject, ExecCmdResult, execCmd, getFileMTime, getFileStatus, elapsedMills, iColor, makeDirectory, dColor, escapeTemplateText, unescapeTemplateText, eColor, kColor, expandGlob, normalizePath } from "./utils";
-import { getCppConfigParams, validateJsonFile, createOutputDirectory, expandTemplate, expandTemplates, variableListParse } from "./processor";
+import { getCppConfigParams, validateJsonFile, createOutputDirectory, expandTemplate, expandTemplates, variableListParse, getGlobalConfig } from "./processor";
 import { checkFileExists, ConfigurationJson, checkDirectoryExists, isArrayOfString, resolveVariables } from "./cpptools";
 import { AsyncSemaphore } from "@esfx/async-semaphore";
 import { CancelToken } from "@esfx/async-canceltoken";
@@ -44,29 +44,10 @@ export class Builder {
 			throw new Error('Maximum number of concurrent tasks must be greater than 0.');
 		}
 
-		if (propertiesPath && await checkFileExists(propertiesPath) === false) {
-			throw new Error(`C/C++ properties file '${propertiesPath}' not found.`);
-		}
-
 		let cppParams: CppParams | undefined;
 
 		if (propertiesPath) {
-			let errors = validateJsonFile(propertiesPath, path.join(PathToRoot, PropertiesFileSchema));
-			if (errors) {
-				throw new Error(`'${propertiesPath}' file schema validation error(s).\n${(<string[]>errors).join('\n\n')}`);
-			}
-
-			const configurationJson: ConfigurationJson | undefined = getJsonObject(propertiesPath);
-
-			if (!configurationJson) {
-				throw new Error(`Configuration '${configName}' not found in '${propertiesPath}' file.`);
-			}
-
-			if (configurationJson.version !== 4) {
-				throw new Error(`Unsupported C/C++ properties file version '${configurationJson.version}'.`);
-			}
-
-			cppParams = getCppConfigParams(configurationJson, configName);
+			cppParams = await getCppConfigParams(propertiesPath, configName);
 
 			if (!cppParams) {
 				throw new Error(`Configuration name '${configName}' not found in '${propertiesPath}' file.`);
@@ -90,16 +71,7 @@ export class Builder {
 
 		variables.push(cppVariables);
 
-		if (await checkFileExists(buildStepsPath) === false) {
-			throw new Error(`Build steps file '${buildStepsPath}' not found.`);
-		}
-
-		let errors = validateJsonFile(buildStepsPath, path.join(PathToRoot, BuildStepsFileSchema));
-		if (errors) {
-			throw new Error(`'${buildStepsPath}' file schema validation error(s).\n${(<string[]>errors).join('\n\n')}`);
-		}
-
-		const globalConfig: GlobalConfiguration | undefined = getJsonObject(buildStepsPath);
+		const globalConfig: GlobalConfiguration | undefined = await getGlobalConfig(buildStepsPath);
 
 		if (!globalConfig) {
 			throw new Error(`No build steps defined in file '${buildStepsPath}'.`);
@@ -198,13 +170,13 @@ export class Builder {
 		const stepIncludePaths = this.resolveAndExpand(workspaceRoot, PV.includePath, stepVariableResolver, ExpandPathsOption.directoriesOnly);
 		stepVariableValues.set(PV.includePath, stepIncludePaths); // set includePath resolved
 
-		let trimmer: cppAnalyzer | undefined = undefined;
+		let analyzer: cppAnalyzer | undefined = undefined;
 		let errorsEncountered = 0;
 		let filesSkipped = 0;
 
 		if ((buildStep.trimIncludePaths || options.trimIncludePaths) && isArrayOfString(stepIncludePaths)) {
-			trimmer = new cppAnalyzer(workspaceRoot);
-			await trimmer.enlistFilePaths(stepIncludePaths);
+			analyzer = new cppAnalyzer(workspaceRoot);
+			await analyzer.enlistFilePaths(stepIncludePaths);
 		}
 
 		if (buildStep.filePattern) {
@@ -282,14 +254,14 @@ export class Builder {
 
 					if (cancelSource.token.signaled) return;
 
-					if (trimmer) {
+					if (analyzer) {
 						// includePaths trimming is enabled
 						// enlist additional files from path resolved on command level
-						await trimmer.enlistFilePaths(cmdIncludePaths); // enlist files from additional paths
+						await analyzer.enlistFilePaths(cmdIncludePaths); // enlist files from additional paths
 						forcedInclude.unshift(filePath); // add the file being processed at index 0
 						forcedInclude.forEach((e, i, a) => { a[i] = unescapeTemplateText(e); });
 						// get includePaths for the file being processed and any forcedInclude files
-						cmdIncludePaths = await this.getIncludes(workspaceRoot, trimmer, forcedInclude);
+						cmdIncludePaths = await this.getIncludes(workspaceRoot, analyzer, forcedInclude);
 						cmdIncludePaths.forEach((e, i, a) => { a[i] = escapeTemplateText(e); });
 						forcedInclude.shift(); // remove file being processed
 						forcedInclude.forEach((e, i, a) => { a[i] = escapeTemplateText(e); });
