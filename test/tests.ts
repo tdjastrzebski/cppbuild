@@ -115,8 +115,8 @@ function getAllDependents(file: string, dependencyMap: Map<string, Set<string>>,
 			allChildDependents = new Set([...allChildDependents, ...childDependents]); // append child dependents
 		}
 		
-		allChildDependents = new Set([...allDependents, ...allChildDependents]);
-		allDependentsMap.set(file, allChildDependents);
+		allDependents = new Set([...allDependents, ...allChildDependents]);
+		allDependentsMap.set(file, allDependents);
 		return allDependents;
 	} else {
 		return undefined; // file has no dependents
