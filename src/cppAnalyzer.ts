@@ -90,8 +90,10 @@ export class cppAnalyzer {
 			}
 		}
 	}
-	
-	/** Resolves files dependencies before dependencies can be retrieved. @files optional list of files additional to those in enlisted paths. */
+
+	/** Resolves files dependencies before dependencies can be retrieved.
+	 * @param files list of files additional to those in enlisted paths.
+	 */
 	async resolveAllFileDependencies(files: string[] = []) {
 		// TODO: create another version of _getPaths() which.. does not return paths and takes full filename
 		for (const [file, locations] of this._fileLocations!.entries()) {
@@ -125,7 +127,9 @@ export class cppAnalyzer {
 		this._allDependentsMap = new Map<string, Set<string> | null>(); // reinitialize cache
 	}
 
-	/** Gets all file dependencies. File paths first need to be enlisted (enlistFilePaths) and dependencies resolved (resolveAllFileDependencies). */
+	/** Gets all file dependents. File paths first need to be enlisted (enlistFilePaths) and dependencies resolved (resolveAllFileDependencies).
+	 * @param file file name
+	 */
 	getAllFileDependents(file: string): Set<string> | null | undefined {
 		if (!this._allDependentsMap) this._allDependentsMap = new Map<string, Set<string>>();
 		let allDependents = this._allDependentsMap.get(file);
