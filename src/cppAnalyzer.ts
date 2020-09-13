@@ -79,24 +79,32 @@ export class cppAnalyzer {
 		for (const filePath of filePaths) {
 			const fileName = path.basename(filePath);
 			const fullPath = path.join(location, filePath);
+			let paths = this._fileLocations!.get(fileName);
 
-			if (this._fileLocations!.has(fileName)) {
-				const paths = this._fileLocations!.get(fileName)!;
+			if (paths) {
 				paths.add(fullPath);
 			} else {
-				const paths = new Set<string>();
+				paths = new Set<string>();
 				paths.add(fullPath);
 				this._fileLocations!.set(fileName, paths);
 			}
 		}
 	}
-
-	async resolveAllFileDependencies(files: string[]) {
+	
+	/** Resolves files dependencies before dependencies can be retrieved. @files optional list of files additional to those in enlisted paths. */
+	async resolveAllFileDependencies(files: string[] = []) {
+		// TODO: create another version of _getPaths() which.. does not return paths and takes full filename
+		for (const [file, locations] of this._fileLocations!.entries()) {
+			for (const location of locations) {
+				const dirname = path.dirname(location);
+				const basename = path.basename(location);
+				await this._getPaths(dirname, basename); // parse files
+			}
+		}
 		for (let file of files) {
 			const dirname = path.dirname(file);
 			const basename = path.basename(file);
 			await this._getPaths(dirname, basename); // parse files
-			// TODO: create another version of _getPaths() which.. does not return paths and takes full filename
 		};
 
 		this._dependentsMap = new Map<string, Set<string>>(); // reinitialize
@@ -117,15 +125,7 @@ export class cppAnalyzer {
 		this._allDependentsMap = new Map<string, Set<string> | null>(); // reinitialize cache
 	}
 
-	removeRootFromPath(file: string): string {
-		file = normalizePath(file);
-		if (path.isAbsolute(file) && file.startsWith(this._rootFolder + '/')) {
-			// absolute path starts with 'root'
-			file = file.substr(this._rootFolder.length + 1);
-		}
-		return file;
-	}
-
+	/** Gets all file dependencies. File paths first need to be enlisted (enlistFilePaths) and dependencies resolved (resolveAllFileDependencies). */
 	getAllFileDependents(file: string): Set<string> | null | undefined {
 		if (!this._allDependentsMap) this._allDependentsMap = new Map<string, Set<string>>();
 		let allDependents = this._allDependentsMap.get(file);
