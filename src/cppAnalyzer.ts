@@ -236,6 +236,63 @@ export class cppAnalyzer {
 		return requiredPaths;
 	}
 
+	getFirstUncommentedLinePart(line: string, parserState: { inCommentBlock: boolean }): string | undefined {
+		line = line.trimLeft();
+		let commentBlockStart: number = -1;
+		let commentBlockEnd: number = -1;
+		let linePartStart: number | undefined = parserState.inCommentBlock ? undefined : 0;
+		let linePartEnd: number | undefined = undefined;
+		let linePartText: string | undefined; // contains the first non-blank, non-comment line part
+
+		// find first non-blank line part between commented-out blocs
+		for (let i: number = 0; i < line.length - 1; i++) {
+			if (parserState.inCommentBlock) {
+				commentBlockEnd = line.indexOf('*/', i);
+
+				if (commentBlockEnd > -1) {
+					// block comment-end found in the same line
+					parserState.inCommentBlock = false;
+					i = commentBlockEnd + 1;
+					linePartStart = commentBlockEnd + 2;
+					linePartEnd = undefined;
+				} else {
+					break; // no block-comment end in this line, read the next line
+				}
+			} else {
+				// not in comment block
+				commentBlockStart = line.indexOf('/*', i);
+				const lineCommentStart: number = line.indexOf('//', i);
+
+				if (commentBlockStart > -1 && (lineCommentStart == -1 || commentBlockStart < lineCommentStart)) {
+					// block-comment start occurs first
+					parserState.inCommentBlock = true;
+					linePartEnd = commentBlockStart;
+					i = commentBlockStart + 1;
+					if (!linePartText) {
+						linePartText = this.getLinePartText(line, linePartStart, linePartEnd);
+					}
+					continue; // continue parsing to find out if block-comment has been closed or left open
+				} else if (lineCommentStart > -1 && (commentBlockStart == -1 || lineCommentStart < commentBlockStart)) {
+					// line comment occurs first
+					parserState.inCommentBlock = false; // FALSE since line comment does not continue to the next line
+					linePartEnd = lineCommentStart;
+					if (!linePartText) {
+						linePartText = this.getLinePartText(line, linePartStart, linePartEnd);
+					}
+					break; // unconditionally skip the rest of the line
+				} else {
+					linePartStart = i;
+					linePartEnd = line.length;
+					if (!linePartText) {
+						linePartText = this.getLinePartText(line, linePartStart, linePartEnd);
+					}
+					break; // this line has no comment-start, stop looking for one
+				}
+			}
+		}
+		return linePartText;
+	}
+
 	private getLinePartText(line: string, textStart: number | undefined, textEnd: number | undefined): string {
 		if (textEnd == undefined) textEnd = line.length;
 		if (textStart == undefined || textEnd <= textStart) return '';
@@ -245,58 +302,13 @@ export class cppAnalyzer {
 
 	private async getIncludedFiles(filePath: string): Promise<string[]> {
 		const includeFiles: string[] = [];
-		let inCommentBlock: boolean = false;
+		const state = { inCommentBlock: false };
 
 		// parse file looking for '#include' directives
 		await readLines(filePath, line => {
-			line = line.trimLeft();
-			let commentBlockStart: number = -1;
-			let commentBlockEnd: number = -1;
-			let linePartStart: number | undefined = inCommentBlock ? undefined : 0;
-			let linePartEnd: number | undefined = undefined;
-			let linePartText: string | undefined; // contains the first non-blank, non-comment line part
+			let linePartText = this.getFirstUncommentedLinePart(line, state);
 
-			// find first non-blank line part between commented-out blocs
-			for (let i: number = 0; i < line.length - 1; i++) {
-				if (inCommentBlock) {
-					commentBlockEnd = line.indexOf('*/', i);
-
-					if (commentBlockEnd > -1) {
-						inCommentBlock = false;
-						i = commentBlockEnd + 1;
-						linePartStart = commentBlockEnd + 2;
-						linePartEnd = undefined;
-					} else {
-						break; // no comment-end in this line, read the next line
-					}
-				} else {
-					// not in comment block
-					commentBlockStart = line.indexOf('/*', i);
-					const lineCommentStart: number = line.indexOf('//', i);
-
-					if (commentBlockStart > -1 && (lineCommentStart == -1 || commentBlockStart < lineCommentStart)) {
-						// block comment occurs first
-						inCommentBlock = true;
-						linePartEnd = commentBlockStart;
-						i = commentBlockStart + 1;
-						linePartText = this.getLinePartText(line, linePartStart, linePartEnd);
-						if (linePartText != '') break; // skip the rest of the line if this part is non-blank
-					} else if (lineCommentStart > -1 && (commentBlockStart == -1 || lineCommentStart < commentBlockStart)) {
-						// line comment occurs first
-						inCommentBlock = false; // FALSE since line comment does not continue to the next line
-						linePartEnd = lineCommentStart;
-						linePartText = this.getLinePartText(line, linePartStart, linePartEnd);
-						break; // unconditionally skip the rest of the line
-					} else {
-						linePartStart = i;
-						linePartEnd = line.length;
-						linePartText = this.getLinePartText(line, linePartStart, linePartEnd);
-						break; // this line has no comment-start, stop looking for one
-					}
-				}
-			}
-
-			if (!linePartText) return;
+			if (!linePartText) return; // line is blank or commented out
 
 			// store 'included' file name
 			if (linePartText.startsWith('#include')) {

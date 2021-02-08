@@ -28,8 +28,34 @@ Runner.prototype.uncaught = function (err) {
 };
 
 suite('static analysis dependency tests', () => {
-	test('analyse dependencies', async () => {
-		const rootFolder = 'C:/Projects/Tomasz Jastrzebski/DISCO-F769NI_LCD_demo';
+	test('getFirstUncommentedLinePart', async () => {
+		const parserState = { inCommentBlock: false };
+		const analyzer: cppAnalyzer = new cppAnalyzer('');
+		let linePartText;
+		linePartText = analyzer.getFirstUncommentedLinePart('DMA1_Stream5_IRQn           = 16,     /*!< DMA1 Stream 5 global Interrupt                                    */', parserState);
+		linePartText = analyzer.getFirstUncommentedLinePart('DMA1_Stream6_IRQn           = 17,     /*!< DMA1 Stream 6 global Interrupt                                    */', parserState);
+	});
+	test('get includes', async () => {
+		const rootFolder = 'C:/Test Projects/STM32H7A3_100';
+		let cppParams = await getCppConfigParams(path.join(rootFolder, '.vscode/c_cpp_properties.json'), 'gcc');
+		let includePaths: string[] = [];
+		cppParams?.includePath?.forEach(includePath => {
+			let newPaths = expandGlob(rootFolder, includePath, ExpandPathsOption.directoriesOnly);
+			includePaths = uniq([...includePaths, ...newPaths]);
+		});
+
+		console.log(`includePath count: ${includePaths.length}`);
+		const analyzer: cppAnalyzer = new cppAnalyzer(rootFolder);
+		await analyzer.enlistFilePaths(includePaths);
+		//const allDependencies = await analyzer.getPaths(rootFolder, "gpu_config.h"); // why "/Drivers/CMSIS/Include" does not get returned?
+		const allDependencies = await analyzer.getPaths(rootFolder, "Drivers/CMSIS/Device/ST/STM32H7xx/Include/stm32h7a3xx.h"); // why "/Drivers/CMSIS/Include" containing "core_cm7.h" does not get returned?!
+		console.log('all this file dependencies')
+		for (const dependency of allDependencies!) {
+			console.log(dependency);
+		}
+	});
+	test('get dependencies', async () => {
+		const rootFolder = 'C:\\Test Projects\\STM32H7A3_100';
 		let cppParams = await getCppConfigParams(path.join(rootFolder, '.vscode/c_cpp_properties.json'), 'gcc');
 		let includePaths: string[] = [];
 
@@ -38,15 +64,16 @@ suite('static analysis dependency tests', () => {
 			includePaths = uniq([...includePaths, ...newPaths]);
 		});
 
-		console.log(includePaths.length);
+		console.log(`includePath count: ${includePaths.length}`);
 		const analyzer: cppAnalyzer = new cppAnalyzer(rootFolder);
 		await analyzer.enlistFilePaths(includePaths);
 		let files = expandGlob(rootFolder, '**/*.c', ExpandPathsOption.filesOnly);
-		console.log(files.length);
+		console.log(`file count: ${files.length}`);
 		for (let i = 0; i < files.length; i++) files[i] = path.join(rootFolder, files[i]);
 		await analyzer.resolveAllFileDependencies(files);
 
-		const file = 'C:\\Projects\\Tomasz Jastrzebski\\DISCO-F769NI_LCD_demo\\BSP_DISCO_F769NI\\Utilities\\Fonts\\fonts.h';
+		const file = 'C:\\Test Projects\\STM32H7A3_100\\Drivers\\Include\\core_cm7.h';
+		//const file = 'C:\\Projects\\Tomasz Jastrzebski\\DISCO-F769NI_LCD_demo\\BSP_DISCO_F769NI\\Utilities\\Fonts\\fonts.h';
 		//const file = 'C:\\Projects\\Tomasz Jastrzebski\\DISCO-F769NI_LCD_demo\\mbed\\platform\\mbed_wait_api.h';
 		//const file = 'C:\\Projects\\Tomasz Jastrzebski\\DISCO-F769NI_LCD_demo\\mbed\\platform\\mbed_preprocessor.h';
 		const allDependents = analyzer.getAllFileDependents(file);
