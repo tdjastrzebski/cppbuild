@@ -400,9 +400,9 @@ export async function getBuildInfos(buildStepsPath: string, propertiesPath?: str
  */
 export function validateJsonFile(jsonFile: string, schemaFile: string): string[] | boolean {
 	// TODO: standardize return value
-	const a = new ajv({ allErrors: true, schemaId: "auto" }); // options can be passed, e.g. {allErrors: true}
-	const meta4: any = require('ajv/lib/refs/json-schema-draft-04.json');
-	a.addMetaSchema(meta4);
+	const a = new ajv({ allErrors: true, allowUnionTypes: true }); // options can be passed, e.g. {allErrors: true}
+	//const meta4: any = require('ajv/lib/refs/json-schema-draft-07.json');
+	//a.addMetaSchema(meta4);
 	const schema: any = require(schemaFile);
 	const validate = a.compile(schema);
 	const data: any = getJsonObject(jsonFile);

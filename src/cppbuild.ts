@@ -21,6 +21,7 @@ import { checkDirectoryExists } from './cpptools';
 const Description = iColor(`Multi-step C/C++ incremental build tool version ${ToolVersion}\nhttps://github.com/tdjastrzebski/cppbuild`);
 const ProcessCwd: string = process.cwd();
 const Program = new cmd.Command();
+const CommandOptions = Program.opts();
 const DefaultMaxTask = 4;
 
 Program
@@ -133,11 +134,11 @@ async function build(configName: string | undefined, buildTypeName: string | und
 	let propertiesFile: string | undefined;
 	const options: BuilderOptions = { maxTasks: DefaultMaxTask, forceRebuild: false, debug: false, trimIncludePaths: false, continueOnError: false };
 
-	if (Program.workspaceRoot) {
-		if (Program.workspaceRoot === true) {
+	if (CommandOptions.workspaceRoot) {
+		if (CommandOptions.workspaceRoot === true) {
 			workspaceRoot = ProcessCwd;
 		} else {
-			workspaceRoot = Program.workspaceRoot;
+			workspaceRoot = CommandOptions.workspaceRoot;
 			if (!path.isAbsolute(workspaceRoot)) {
 				workspaceRoot = path.join(ProcessCwd, workspaceRoot);
 			}
@@ -153,23 +154,23 @@ async function build(configName: string | undefined, buildTypeName: string | und
 		workspaceRoot = ProcessCwd;
 	}
 
-	if (Program.propertiesFile) {
-		if (Program.propertiesFile === true) {
+	if (CommandOptions.propertiesFile) {
+		if (CommandOptions.propertiesFile === true) {
 			propertiesFile = undefined;
 		} else {
-			if (path.isAbsolute(Program.configurationsFile)) {
-				propertiesFile = Program.configurationsFile;
+			if (path.isAbsolute(CommandOptions.configurationsFile)) {
+				propertiesFile = CommandOptions.configurationsFile;
 			} else {
-				propertiesFile = path.join(ProcessCwd, Program.configurationsFile);
+				propertiesFile = path.join(ProcessCwd, CommandOptions.configurationsFile);
 			}
 		}
 	}
 
-	if (Program.buildFile) {
-		if (path.isAbsolute(Program.buildFile)) {
-			buildFile = Program.buildFile;
+	if (CommandOptions.buildFile) {
+		if (path.isAbsolute(CommandOptions.buildFile)) {
+			buildFile = CommandOptions.buildFile;
 		} else {
-			buildFile = path.join(ProcessCwd, Program.buildFile);
+			buildFile = path.join(ProcessCwd, CommandOptions.buildFile);
 		}
 	}
 
@@ -177,8 +178,8 @@ async function build(configName: string | undefined, buildTypeName: string | und
 		buildFile = path.join(ProcessCwd, BuildStepsFile);
 	}
 
-	if (Program.maxTasks) {
-		const maxTasks = parseInt(Program.maxTasks);
+	if (CommandOptions.maxTasks) {
+		const maxTasks = parseInt(CommandOptions.maxTasks);
 		if (!isNaN(maxTasks)) {
 			options.maxTasks = maxTasks;
 		} else {
@@ -186,17 +187,17 @@ async function build(configName: string | undefined, buildTypeName: string | und
 		}
 	}
 
-	if (Program.forceRebuild === true) options.forceRebuild = true;
-	if (Program.debug === true) options.debug = true;
-	if (Program.trimIncludePaths === true) options.trimIncludePaths = true;
-	if (Program.continueOnError === true) options.continueOnError = true;
+	if (CommandOptions.forceRebuild === true) options.forceRebuild = true;
+	if (CommandOptions.debug === true) options.debug = true;
+	if (CommandOptions.trimIncludePaths === true) options.trimIncludePaths = true;
+	if (CommandOptions.continueOnError === true) options.continueOnError = true;
 
-	const cliExtraParams = Program.variable as IStringDictionary<string>;
+	const cliExtraParams = CommandOptions.variable as IStringDictionary<string>;
 
 	console.log(Description);
 	console.log();
 
-	if (!Program.initialize) {
+	if (!CommandOptions.initialize) {
 		// run build steps
 		console.log(rColor('workspace root: ') + hColor(workspaceRoot));
 		console.log(rColor('build steps file: ') + hColor(buildFile));
@@ -213,7 +214,7 @@ async function build(configName: string | undefined, buildTypeName: string | und
 		console.log(iColor(`Build steps completed in ${timeElapsed.toFixed(2)}s, ${result.filesProcessed} file(s) processed, ${result.filesSkipped} file(s) skipped, ` + errorsColor(`${result.errorsEncountered} error(s) encountered.`)));
 	} else {
 		// create sample config file
-		const filePath = Program.initialize;
+		const filePath = CommandOptions.initialize;
 		const compilerType = buildTypeName;
 		console.log(rColor('config name: ') + hColor(configName ?? 'none'));
 		console.log(rColor('compiler type: ') + hColor(compilerType ?? 'none'));
