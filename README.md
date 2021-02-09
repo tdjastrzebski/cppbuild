@@ -108,6 +108,7 @@ The above variables are available when **filePattern** or **fileList** build ste
 * 1.3.12 TSLint -> ESLint
 * 1.3.14 commented out `#define` directives are correctly ignored, packages updated
 * 1.3.15 **c_cpp_properties** schema updated, minor fixes
+* 1.3.16 **c_cpp_properties** schema updated again, serious parser bug fix, packages updated, first attempt at full dependency analysis (and rebuild)
 
 # Further improvements
 I am certain this tool could be further improved in many ways, including both functionality and code structure. This is the second TypeScript program I have ever written (the first one was "hello world" app).  
