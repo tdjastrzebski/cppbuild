@@ -32,6 +32,14 @@ For more options run: `cppbuild --help`
 [c_cpp_build.json](test-cpp/.vscode/c_cpp_build.json) file defines multiple configurations, build types and build steps.  
 See the content of the [c_cpp_build.json](test-cpp/.vscode/c_cpp_build.json) file for a sample build configuration.
 
+Sample build type:
+```yaml
+{
+  "name": "debug",
+  "params": { "buildTypeParams": "-O0 -g" }
+}
+```
+
 Sample build step:
 ```yaml
 {
@@ -39,13 +47,6 @@ Sample build step:
   "filePattern": "**/*.cpp",
   "outputFile": "build/${buildTypeName}/${fileDirectory}/${fileName}.o",
   "command": "g++ -c ${buildTypeParams} (-I[$${includePath}]) (-D$${defines}) [${filePath}] -o [${outputFile}]"
-}
-```
-Sample build type:
-```yaml
-{
-  "name": "debug",
-  "params": { "buildTypeParams": "-O0 -g" }
 }
 ```
 
@@ -109,6 +110,7 @@ The above variables are available when **filePattern** or **fileList** build ste
 * 1.3.14 commented out `#define` directives are correctly ignored, packages updated
 * 1.3.15 **c_cpp_properties** schema updated, minor fixes
 * 1.3.16 **c_cpp_properties** schema updated again, serious parser bug fix, packages updated, first attempt at full dependency analysis (and rebuild)
+* 1.3.17 lodash updated to ver 4.17.20 to eliminate its known vulnerabilities
 
 # Further improvements
 I am certain this tool could be further improved in many ways, including both functionality and code structure. This is the second TypeScript program I have ever written (the first one was "hello world" app).  
