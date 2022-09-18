@@ -49,6 +49,7 @@ Sample build step:
   "command": "g++ -c ${buildTypeParams} (-I[$${includePath}]) (-D$${defines}) [${filePath}] -o [${outputFile}]"
 }
 ```
+Run: `cppbuild gcc gcc-x64 --initialize c_cpp_build.json` to create sample build file with typical **gcc** settings. Other supported settings: **msvc** and **clang**
 
 Here is how it works:
 1. **command** (here g++ compiler) is run for every file matching **filePattern** (**/*.cpp).
@@ -65,7 +66,7 @@ Here is how it works:
 In contrast, **fileList** only populates `$${fileDirectory}`, `$${filePath}` and `$${fileName}` multi-valued variables.
 1. Standard `${name}` variable syntax is used for single-valued variables. `$${name}` denotes multi-valued variable.
 1. Strings in `()` (e.g. `(-D$${defines})`) are sub-templates repeated for every variable value inside. Therefore, only one multi-valued variable inside `()` is allowed. If sub-template contains path or file name which may require quoting, `[]` can be used instead, e.g. `[$${fileName}.cpp]`.
-1. Environment values (`${env:name}`) and standard variables **workspaceRoot**/**workspaceFolder** and **workspaceRootFolderName** can be used.
+1. Environment values (`${env:name}`) and standard variables **workspaceRoot**/**workspaceFolder** and **workspaceRootFolderName**/**workspaceFolderBasename** can be used.
 1. **filePattern** and **outputDirectory** are not required. Command without **filePattern** will be executed just once.
 1. **build types** do not have to be defined - they are optional and they can define multiple additional variables. If specified, **buildTypeName** variable is added.
 1. If **outputDirectory** or **outputFile** are specified, the required directory will be created if it does not exist.
@@ -81,7 +82,7 @@ In contrast, **fileList** only populates `$${fileDirectory}`, `$${filePath}` and
 
 # Predefined variables
 The following variables have been predefined:
-1. **workspaceRoot**/**workspaceFolder** (full folder path) and **workspaceRootFolderName** (just the folder name)
+1. **workspaceRoot**/**workspaceFolder** (full folder path) and **workspaceRootFolderName**/**workspaceFolderBasename** (just the folder name)
 1. **configName** - selected build configuration name
 1. **buildTypeName** - selected build type name (optional)
 1. **filePath** (relative file path), **fileDirectory** (relative file directory), **fileName** (file name without extension), **fullFileName** (file name with extension), **fileExtension** (without '.')  
@@ -111,6 +112,7 @@ The above variables are available when **filePattern** or **fileList** build ste
 * 1.3.15 **c_cpp_properties** schema updated, minor fixes
 * 1.3.16 **c_cpp_properties** schema updated again, serious parser bug fix, packages updated, first attempt at full dependency analysis (and rebuild)
 * 1.3.17 lodash updated to ver 4.17.20 to eliminate its known vulnerabilities
+* 1.3.18 warning color change
 
 # Further improvements
 I am certain this tool could be further improved in many ways, including both functionality and code structure. This is the second TypeScript program I have ever written (the first one was "hello world" app).  

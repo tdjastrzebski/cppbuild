@@ -53,7 +53,7 @@ export class cppAnalyzer {
 
 				if (path.isAbsolute(includePath) && includePath.startsWith(this._rootFolder + '/')) {
 					// absolute path starts with 'root'
-					includePath = includePath.substr(this._rootFolder.length + 1);
+					includePath = includePath.substring(this._rootFolder.length + 1);
 				} else if (includePath == this._rootFolder) {
 					// path is 'root'
 					includePath = '.';
@@ -318,14 +318,14 @@ export class cppAnalyzer {
 					const closingQuote = includeFile.indexOf('"', 1);
 
 					if (closingQuote > 0) {
-						includeFile = includeFile.substr(1, closingQuote - 1);
+						includeFile = includeFile.substring(1, closingQuote - 1);
 						includeFiles.push(includeFile);
 					}
 				} else if (includeFile.startsWith('<')) {
 					const closingQuote = includeFile.indexOf('>', 1);
 
 					if (closingQuote > 0) {
-						includeFile = includeFile.substr(1, closingQuote - 1);
+						includeFile = includeFile.substring(1, closingQuote - 1);
 						includeFiles.push(includeFile);
 					}
 				}

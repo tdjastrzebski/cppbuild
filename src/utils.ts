@@ -217,7 +217,7 @@ export function matchRecursive(text: string, left: string, right: string, flags:
 }
 
 export function replaceAt(string: string, index: number, length: number, replacement: string): string {
-	return string.substr(0, index) + replacement + string.substr(index + length);
+	return string.substring(0, index) + replacement + string.substring(index + length);
 }
 
 export function globAsync(pattern: string, options: glob.IOptions): Promise<string[]> {
@@ -343,10 +343,10 @@ export function lookUpVariable(name: string, extraParams: ParamsDictionary): str
 
 	if (name.startsWith('~')) {
 		const home = (process.platform === 'win32') ? process.env.USERPROFILE : process.env.HOME;
-		newValue = path.join(home || '', name.substr(1));
+		newValue = path.join(home || '', name.substring(1));
 		newValue = escapeTemplateText(newValue);
 	} else if (name.startsWith('env:')) {
-		name = name.substr('env:'.length);
+		name = name.substring('env:'.length);
 		newValue = process.env[name];
 		if (newValue) newValue = escapeTemplateText(newValue);
 	} else {
@@ -389,7 +389,7 @@ export function unescapeTemplateText(text: string | string[]): any {
 	text = text.replace(/(?:\\(.))/g, '$1'); // TODO: it works, test if it is faster, unescapes all characters
 	/*
 	text = text.replace(/\\[\[\]\(\)\$\{\}\,\\]/g, match => {
-		return match.substr(1, 1); // return the second char only, without trailing '\'
+		return match.substring(1, 1); // return the second char only, without trailing '\'
 	});
 	*/
 	return text;
@@ -412,7 +412,7 @@ export function expandGlob(workspaceRoot: string, pattern: string, expandOption:
 		paths.forEach((path, index, paths) => {
 			if (path.endsWith('/') || path.endsWith('\\')) {
 				// remove trailing \ /
-				path = path.substr(0, path.length - 1);
+				path = path.substring(0, path.length - 1);
 			}
 			path = escapeTemplateText(path);
 			paths[index] = path;

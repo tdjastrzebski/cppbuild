@@ -89,6 +89,7 @@ export enum PredefinedVariables {
 	workspaceRoot = 'workspaceRoot',
 	workspaceFolder = 'workspaceFolder',
 	workspaceRootFolderName = 'workspaceRootFolderName',
+	workspaceFolderBasename = 'workspaceFolderBasename',
 	configName = 'configName',
 	outputFile = 'outputFile',
 	outputDirectory = 'outputDirectory',

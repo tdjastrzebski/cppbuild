@@ -31,6 +31,7 @@ export class Builder {
 		globalVariables[PV.workspaceRoot] = escapeTemplateText(workspaceRoot);
 		globalVariables[PV.workspaceFolder] = escapeTemplateText(workspaceRoot);
 		globalVariables[PV.workspaceRootFolderName] = escapeTemplateText(workspaceRootFolderName);
+		globalVariables[PV.workspaceFolderBasename] = escapeTemplateText(workspaceRootFolderName);
 		globalVariables[PV.configName] = escapeTemplateText(configName);
 		variables.push(globalVariables);
 
@@ -59,6 +60,7 @@ export class Builder {
 			additionalEnvironment[PV.workspaceRoot] = workspaceRoot;
 			additionalEnvironment[PV.workspaceFolder] = workspaceRoot;
 			additionalEnvironment[PV.workspaceRootFolderName] = workspaceRootFolderName;
+			additionalEnvironment[PV.workspaceFolderBasename] = workspaceRootFolderName;
 			cppVariables[PV.includePath] = escapeTemplateText(resolveVariables(cppParams.includePath, additionalEnvironment));
 			cppVariables[PV.forcedInclude] = escapeTemplateText(resolveVariables(cppParams.forcedInclude, additionalEnvironment));
 			cppVariables[PV.defines] = escapeTemplateText(resolveVariables(cppParams.defines, additionalEnvironment));
@@ -202,13 +204,13 @@ export class Builder {
 					const fileDirectory: string = path.dirname(filePath);
 					const fileExtension: string = path.extname(filePath);
 					const fullFileName: string = path.basename(filePath);
-					const fileName: string = fullFileName.substr(0, fullFileName.length - fileExtension.length);
+					const fileName: string = fullFileName.substring(0, fullFileName.length - fileExtension.length);
 					// set file-specific command-level variables
 					cmdVariables[PV.fileDirectory] = escapeTemplateText(fileDirectory == '.' ? '' : fileDirectory);
 					cmdVariables[PV.filePath] = escapeTemplateText(filePath);
 					cmdVariables[PV.fileName] = escapeTemplateText(fileName);
 					cmdVariables[PV.fullFileName] = escapeTemplateText(fullFileName);
-					cmdVariables[PV.fileExtension] = escapeTemplateText(fileExtension.length > 0 ? fileExtension.substr(1) : "");
+					cmdVariables[PV.fileExtension] = escapeTemplateText(fileExtension.length > 0 ? fileExtension.substring(1) : "");
 
 					if (buildStep.outputFile) {
 						const outputFilePath = this.resolveVariable(workspaceRoot, PV.outputFile, stepVariables, ExpandPathsOption.noExpand);
@@ -360,9 +362,9 @@ export class Builder {
 					fileDirectories.push(fileDirectory == '.' ? '' : fileDirectory);
 					let fileExtension: string = path.extname(filePath);
 					const fullFileName: string = path.basename(filePath);
-					fileNames.push(fullFileName.substr(0, fullFileName.length - fileExtension.length));
+					fileNames.push(fullFileName.substring(0, fullFileName.length - fileExtension.length));
 					fullFileNames.push(fullFileName);
-					fileExtensions.push(fileExtension.length > 0 ? fileExtension.substr(1) : "");
+					fileExtensions.push(fileExtension.length > 0 ? fileExtension.substring(1) : "");
 				});
 				// set fileList-specific command-level variables
 				cmdVariables[PV.fileDirectory] = escapeTemplateText(fileDirectories);
@@ -472,10 +474,10 @@ export class Builder {
 
 		if (variableName.startsWith('~')) {
 			const home = (process.platform === 'win32') ? process.env.USERPROFILE : process.env.HOME;
-			currentValue = path.join(home || '', variableName.substr(1));
+			currentValue = path.join(home || '', variableName.substring(1));
 			currentValue = escapeTemplateText(currentValue);
 		} else if (variableName.startsWith('env:')) {
-			const envNameVariable = variableName.substr('env:'.length);
+			const envNameVariable = variableName.substring('env:'.length);
 			currentValue = process.env[envNameVariable];
 			if (currentValue) currentValue = escapeTemplateText(currentValue);
 		} else {
@@ -606,7 +608,7 @@ export async function setSampleBuildConfig(buildStepsPath: string, configName: s
 			break;
 		case 'msvc-x64':
 			if (!configParams) configParams = {};
-			configParams['scopeCppSDK'] = 'C:/Program Files \\(x86\\)/Microsoft Visual Studio/2019/Community/SDK/ScopeCppSDK';
+			configParams['scopeCppSDK'] = 'C:/Program Files/Microsoft Visual Studio/2022/Community/SDK/ScopeCppSDK/vc15';
 			const libPaths = getParamsArray(configParams, 'libPaths');
 			libPaths.push('${scopeCppSDK}/VC/include');
 			libPaths.push('${scopeCppSDK}/SDK/include/ucrt');
@@ -669,7 +671,7 @@ export async function setSampleBuildConfig(buildStepsPath: string, configName: s
 	gParams['buildOutput'] = '${buildDir}/${configName}/${buildTypeName}';
 	gParams['defines'] = ["$${defines}", "UNICODE", "_UNICODE"];
 	gParams['debugDefines'] = ["_DEBUG", "DEBUG"];
-	gParams['includePath'] = ["$${includePath}", "${workspaceRoot}/**"];
+	gParams['includePath'] = ["$${includePath}", "${workspaceFolder}/**"];
 
 	const text = JSON.stringify(configs, null, '\t');
 

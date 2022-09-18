@@ -14,7 +14,7 @@
 		],
 		"includePath": [
 			"$${includePath}",
-			"${workspaceRoot}/**"
+			"${workspaceFolder}/**"
 		]
 	},
 	"configurations": [
@@ -69,7 +69,7 @@
 		{
 			"name": "msvc",
 			"params": {
-				"scopeCppSDK": "C:/Program Files \\(x86\\)/Microsoft Visual Studio/2019/Community/SDK/ScopeCppSDK",
+				"scopeCppSDK": "C:/Program Files/Microsoft Visual Studio/2022/Community/SDK/ScopeCppSDK/vc15",
 				"libPaths": [
 					"${scopeCppSDK}/VC/include",
 					"${scopeCppSDK}/SDK/include/ucrt"
