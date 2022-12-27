@@ -7,7 +7,7 @@
 
 import { BuildStepsFileSchema, PropertiesFileSchema, VariableList, PathToRoot } from "./consts";
 import { GlobalConfiguration, BuildConfiguration, BuildType, CppParams, BuildStep, BuilderOptions, ParamsDictionary, ExpandPathsOption, CompilerType, Logger, VariableResolver, BuildStepResult, BuildResult } from "./interfaces";
-import { getJsonObject, ExecCmdResult, execCmd, getFileMTime, getFileStatus, elapsedMills, iColor, makeDirectory, dColor, escapeTemplateText, unescapeTemplateText, eColor, kColor, expandGlob, normalizePath } from "./utils";
+import { getJsonObject, ExecCmdResult, execCmd, getFileMTime, getFileStatus, elapsedMills, iColor, makeDirectory, dColor, escapeTemplateText, unescapeTemplateText, eColor, kColor, expandGlob, normalizePath, getErrorMessage } from "./utils";
 import { getCppConfigParams, validateJsonFile, createOutputDirectory, expandTemplate, expandTemplates, variableListParse, getGlobalConfig } from "./processor";
 import { checkFileExists, ConfigurationJson, checkDirectoryExists, isArrayOfString, resolveVariables } from "./cpptools";
 import { AsyncSemaphore } from "@esfx/async-semaphore";
@@ -158,7 +158,7 @@ export class Builder {
 
 				if (!options.continueOnError && result.errorsEncountered > 0) break;
 			} catch (e) {
-				throw new Error(`An error occurred during '${buildStep.name}' step - terminating.\n${e.message}`);
+				throw new Error(`An error occurred during '${buildStep.name}' step - terminating.\n${getErrorMessage(e)}`);
 			}
 		}
 
@@ -634,7 +634,7 @@ export async function setSampleBuildConfig(buildStepsPath: string, configName: s
 		try {
 			await makeDirectory(dir, { recursive: true });
 		} catch (e) {
-			throw new Error(`Error creating ${dir} folder.\n${e.message}`);
+			throw new Error(`Error creating ${dir} folder.\n${getErrorMessage(e)}`);
 		}
 	}
 
@@ -678,7 +678,7 @@ export async function setSampleBuildConfig(buildStepsPath: string, configName: s
 	try {
 		fs.writeFileSync(buildStepsPath, text);
 	} catch (e) {
-		throw new Error(`Error writing ${buildStepsPath} file.\n${e.message}`);
+		throw new Error(`Error writing ${buildStepsPath} file.\n${getErrorMessage(e)}`);
 	}
 }
 

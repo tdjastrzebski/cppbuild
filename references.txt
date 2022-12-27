@@ -33,18 +33,14 @@ https://medium.com/rubber-ducking/creating-a-cli-with-typescript-1c5112ae101f
 Node.js — How to test your new NPM module without publishing it every 5 minutes
 https://medium.com/@the1mills/how-to-test-your-npm-module-without-publishing-it-every-5-minutes-1c4cb4b369be
 
-cppbuild GCC debug -w H:/DISCO-F769NI_LCD_demo -b H:/cppbuild/c_cpp_build.json -c H:/cppbuild/c_cpp_properties.json -v "buildTypeParams=-Os -g2"
 
-npm link
-npm publish --dry-run
-git tag <name>
-git push origin tag <name>
 
 Understanding JSON Schema
 https://json-schema.org/understanding-json-schema/
 https://json-schema.org/understanding-json-schema/reference/regular_expressions.html
 https://www.jsonschemavalidator.net/
 https://jsonschema.net/
+use new RFC 8927
 
 https://esfx.js.org/#async
 https://github.com/esfx/esfx/
@@ -66,3 +62,30 @@ https://adrianhall.github.io/web/2018/07/04/run-typescript-mocha-tests-in-vscode
 https://vscode.rocks/testing/
 https://github.com/microsoft/vscode-recipes/tree/master/debugging-mocha-tests
 https://blog.logrocket.com/a-quick-and-complete-guide-to-mocha-testing-d0e0ea09f09d/
+
+# Update npm & tsc
+npm install -g npm
+npm install --location=global typescript
+tsc -v
+
+# update packages
+npm outdated
+npm update
+
+# update c_cpp_properties.schema.json
+current version: https://github.com/microsoft/vscode-cpptools/blob/main/Extension/c_cpp_properties.schema.json
+migrate to schema-07 since ajv no longer supports schema-04 well
+https://github.com/ajv-validator/ajv-cli#migrate-schemas
+ajv migrate -s c_cpp_properties.schema.json --spec=draft7
+replace markdownDescription with description
+remove descriptionHint
+
+cppbuild GCC debug -w H:/DISCO-F769NI_LCD_demo -b H:/cppbuild/c_cpp_build.json -c H:/cppbuild/c_cpp_properties.json -v "buildTypeParams=-Os -g2"
+
+# test and publish
+npm link
+npm publish --dry-run
+git tag <name>
+git push origin tag <name>
+
+npm install --save

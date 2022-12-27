@@ -222,8 +222,7 @@ async function build(configName: string | undefined, buildTypeName: string | und
 		console.log();
 
 		if (configName && compilerType) {
-			const stringToEnumValue = <ET, T>(enumObj: ET, str: string): T => (enumObj as any)[Object.keys(enumObj).filter(k => (enumObj as any)[k] === str)[0]];
-			const cType = stringToEnumValue<typeof CompilerType, CompilerType>(CompilerType, compilerType); // convert string enum name to enum value
+			const cType : CompilerType = compilerType as unknown as CompilerType;
 			if (cType) {
 				await setSampleBuildConfig(filePath, configName, cType);
 				console.log(kColor('success'));

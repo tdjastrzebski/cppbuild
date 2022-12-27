@@ -102,7 +102,13 @@ export function sleep(mills: number, token = CancelToken.none): Promise<void> {
 
 export async function getLatestVersion(name: string, token = CancelToken.none): Promise<string> {
 	const result = await execCmd(`npm show ${name} version`, {}, token);
-	return result.stdout.split(/[\r\n]/).filter(line => !!line)[0];
+	var lines = result.stdout.split(/[\r\n]/).filter(line => !!line);
+	
+	if (lines[0].startsWith("npm WARN")) {
+		return lines[1];
+	} else {
+		return lines[0];
+	}
 }
 
 /*
@@ -122,12 +128,10 @@ export function resolveVariables(input: string, params: VariableResolver): strin
  * @param jsonPath path to json file
  */
 export function getJsonObject<T>(jsonPath: string): T | undefined {
-	fs.exists(jsonPath, exists => {
-		if (!exists) {
-			console.error(`'${jsonPath}' file not found.`);
-			return;
-		}
-	});
+	if (!fs.existsSync(jsonPath)) {
+		console.error(`'${jsonPath}' file not found.`);
+		return;
+	};
 
 	const readResults: string = fs.readFileSync(jsonPath, 'utf8');
 
@@ -189,7 +193,7 @@ export function matchRecursive(text: string, left: string, right: string, flags:
 	try {
 		parts = xRegExp.matchRecursive(text, left, right, flags, { valueNames: [null, 'left', 'match', 'right'], escapeChar: escapeChar });
 	} catch (e) {
-		throw new Error(`${e.message}: '${text}'.`);
+		throw new Error(`${getErrorMessage(e)}: '${text}'.`);
 	}
 
 	const matches: XRegExpMatch[] = [];
@@ -404,7 +408,7 @@ export function expandGlob(workspaceRoot: string, pattern: string, expandOption:
 			// make sure pattern ends with '/' - this causes only directories to be matched
 			if (!pattern.endsWith('/') && !pattern.endsWith('\\')) pattern += '/';
 		}
-		
+
 		const cwd = path.isAbsolute(pattern) ? '/' : workspaceRoot; // do not return full path if at workspaceRoot
 		const nodir = (expandOption === ExpandPathsOption.filesOnly);
 		const paths = globSync(pattern, { cwd: cwd, nodir: nodir });
@@ -424,4 +428,9 @@ export function expandGlob(workspaceRoot: string, pattern: string, expandOption:
 /** Normalize path, always use '/' as a path separator */
 export function normalizePath(p: string): string {
 	return path.normalize(p).replace(/\\/g, '/');
+}
+
+export function getErrorMessage(error: unknown) {
+	if (error instanceof Error) return error.message
+	return String(error)
 }

@@ -413,9 +413,9 @@ export function validateJsonFile(jsonFile: string, schemaFile: string): string[]
 	const errors: string[] = [];
 
 	validate.errors!.forEach(error => {
-		let text = error.dataPath;
-		text += ' ';
-		text += error.message;
+		var text = "";
+		if (error.data) text += error.data + ' ';
+		if (error.message) text += error.message;
 		text += '\n';
 		text += listObject(error.params).join(', ');
 		errors.push(text);
