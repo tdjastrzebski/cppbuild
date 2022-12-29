@@ -254,7 +254,7 @@ function parseVariables(variable: string, params: IStringDictionary<string> = {}
 		console.error(wColor('invalid variable name/value: ' + variable));
 		return params;
 	}
-	const name = variable.substr(0, i).trim();
+	const name = variable.substring(0, i).trim();
 	const value = variable.substring(i + 1).trim();
 	params[name.trim()] = value;
 	return params;

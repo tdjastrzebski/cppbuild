@@ -63,7 +63,7 @@ export class LineDecoder {
 		while (idx < value.length) {
 			ch = value.charCodeAt(idx);
 			if (ch === CharCode.CarriageReturn || ch === CharCode.LineFeed) {
-				result.push(value.substr(start, idx));
+				result.push(value.substring(start, idx + start));
 				idx++;
 				if (idx < value.length) {
 					const lastChar = ch;

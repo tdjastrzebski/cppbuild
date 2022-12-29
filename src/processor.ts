@@ -284,9 +284,9 @@ export function variableListParse(list: string): string[] {
 	const matches = list.match(ListValues);
 	matches?.forEach(value => {
 		value = value.trim();
-		value = value.endsWith(',') ? value.substr(0, value.length - 1) : value; // remove ending ','
+		value = value.endsWith(',') ? value.substring(0, value.length - 1) : value; // remove ending ','
 		value = value.trim();
-		value = value.startsWith('\'') && value.endsWith('\'') ? value.substr(1, value.length - 2) : value; // remove single quotes
+		value = value.startsWith('\'') && value.endsWith('\'') ? value.substring(1, value.length - 1) : value; // remove single quotes
 		value = value.replace(/\\'/g, '\''); // de-escape single quotes
 		values.push(value);
 	});
@@ -307,7 +307,7 @@ function formatPath(pathString: string): string {
 				// path already single-quoted - non-Windows
 			} else {
 				// change single quotes to double quotes required by Win32
-				pathString = pathString.substr(1, pathString.length - 2);
+				pathString = pathString.substring(1, pathString.length - 1);
 				pathString = '"' + pathString + '"';
 			}
 		} else {

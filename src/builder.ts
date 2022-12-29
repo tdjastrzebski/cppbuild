@@ -204,7 +204,7 @@ export class Builder {
 					const fileDirectory: string = path.dirname(filePath);
 					const fileExtension: string = path.extname(filePath);
 					const fullFileName: string = path.basename(filePath);
-					const fileName: string = fullFileName.substr(0, fullFileName.length - fileExtension.length);
+					const fileName: string = fullFileName.substring(0, fullFileName.length - fileExtension.length);
 					// set file-specific command-level variables
 					cmdVariables[PV.fileDirectory] = escapeTemplateText(fileDirectory == '.' ? '' : fileDirectory);
 					cmdVariables[PV.filePath] = escapeTemplateText(filePath);
@@ -362,7 +362,7 @@ export class Builder {
 					fileDirectories.push(fileDirectory == '.' ? '' : fileDirectory);
 					let fileExtension: string = path.extname(filePath);
 					const fullFileName: string = path.basename(filePath);
-					fileNames.push(fullFileName.substr(0, fullFileName.length - fileExtension.length));
+					fileNames.push(fullFileName.substring(0, fullFileName.length - fileExtension.length));
 					fullFileNames.push(fullFileName);
 					fileExtensions.push(fileExtension.length > 0 ? fileExtension.substring(1) : "");
 				});

@@ -296,7 +296,7 @@ export class cppAnalyzer {
 	private getLinePartText(line: string, textStart: number | undefined, textEnd: number | undefined): string {
 		if (textEnd == undefined) textEnd = line.length;
 		if (textStart == undefined || textEnd <= textStart) return '';
-		const text: string = line.substr(textStart, textEnd).trim();
+		const text: string = line.substring(textStart, textStart + textEnd).trim();
 		return text;
 	}
 
@@ -318,14 +318,14 @@ export class cppAnalyzer {
 					const closingQuote = includeFile.indexOf('"', 1);
 
 					if (closingQuote > 0) {
-						includeFile = includeFile.substr(1, closingQuote - 1);
+						includeFile = includeFile.substring(1, closingQuote);
 						includeFiles.push(includeFile);
 					}
 				} else if (includeFile.startsWith('<')) {
 					const closingQuote = includeFile.indexOf('>', 1);
 
 					if (closingQuote > 0) {
-						includeFile = includeFile.substr(1, closingQuote - 1);
+						includeFile = includeFile.substring(1, closingQuote);
 						includeFiles.push(includeFile);
 					}
 				}
