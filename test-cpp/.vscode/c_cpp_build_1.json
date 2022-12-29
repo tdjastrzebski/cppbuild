@@ -1,0 +1,20 @@
+{
+	"version": 1,
+	"configurations": [
+		{
+			"name": "msvc",
+			"buildTypes": [
+				{
+					"name": "debug"
+				}
+			],
+			"buildSteps": [
+				{
+					"name": "list includes step",
+					"command": "echo (/I[$${'aa aa', 'bb bb'}])",
+					"trimIncludePaths": true
+				}
+			]
+		}
+	]
+}
