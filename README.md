@@ -121,3 +121,10 @@ For example, multi-valued variables currently cannot be specified from command l
 Please do not hesitate to suggest fixes and improvements. Pull requests are more than welcome.
 
 Finally, if you find this tool useful, please give it a star. This way others will be able to find it more easily.
+
+# TODO
+* fix unhandled error if a file in "forcedInclude" does not exist
+* fix missing includes when actuall file name casing does not match the one specified in #include
+* use full dependency analysis and rebuild all the dependent file branch
+* fix depreciated typescript methods
+* update components

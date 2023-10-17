@@ -94,3 +94,10 @@ npm install --save
 # tests
 cppbuild GCC debug -w test-cpp -b c_cpp_build.json -c H:/cppbuild/c_cpp_properties.json -v "buildTypeParams=-Os -g2"
 cppbuild msvc debug -w test-cpp
+
+#TODO
+- fix unhandled error if a file in "forcedInclude" does not exist
+- fix missing includes when actuall file name casing does not match the one specified in #include
+- use full dependency analysis and rebuild all the dependent file branch
+- fix depreciated typescript methods
+- update components
