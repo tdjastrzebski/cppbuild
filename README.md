@@ -124,7 +124,7 @@ Finally, if you find this tool useful, please give it a star. This way others wi
 
 # TODO
 * fix unhandled error if a file in "forcedInclude" does not exist
-* fix missing includes when actuall file name casing does not match the one specified in #include
-* use full dependency analysis and rebuild all the dependent file branch
-* fix depreciated typescript methods
-* update components
+* fix missing includes when actual file name casing does not match the one specified in #include
+* use already implemented full dependency analysis and rebuild all the dependent file branch
+* replace depreciated typescript methods
+* update components to last major versions
