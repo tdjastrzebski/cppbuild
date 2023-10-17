@@ -126,5 +126,6 @@ Finally, if you find this tool useful, please give it a star. This way others wi
 * fix unhandled error if a file in "forcedInclude" does not exist
 * fix missing includes when actual file name casing does not match the one specified in #include
 * use already implemented full dependency analysis and rebuild all the dependent file branch
+* test dependency on `defines` in `c_cpp_properties.json`
 * replace depreciated typescript methods
 * update components to last major versions
