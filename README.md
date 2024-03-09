@@ -129,3 +129,6 @@ Finally, if you find this tool useful, please give it a star. This way others wi
 * test dependency on `defines` in `c_cpp_properties.json`
 * replace depreciated typescript methods
 * update components to last major versions
+* allow `filePattern` to accept array
+* make `trimIncludePaths` default true
+* add `excludeFiles` param, also accepting array
