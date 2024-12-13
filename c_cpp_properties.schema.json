@@ -16,7 +16,10 @@
           },
           "compilerPath": {
             "description": "Full path of the compiler being used, e.g. `/usr/bin/gcc`, to enable more accurate IntelliSense.",
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "compilerArgs": {
             "description": "Compiler arguments to modify the includes or defines used, e.g. `-nostdinc++`, `-m32`, etc. Arguments that take additional space-delimited arguments should be entered as separate arguments in the array, e.g. for `--sysroot <arg>` use `\"--sysroot\", \"<arg>\"`.",
@@ -75,7 +78,7 @@
             }
           },
           "macFrameworkPath": {
-            "description": "A list of paths for the Intellisense engine to use while searching for included headers from Mac frameworks. Only supported on Mac configuration.",
+            "description": "A list of paths for the IntelliSense engine to use while searching for included headers from Mac frameworks. Only supported on Mac configuration.",
             "type": "array",
             "items": {
               "type": "string"

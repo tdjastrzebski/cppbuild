@@ -24,7 +24,7 @@
     "@esfx/async-canceltoken": "^1.0.0",
     "@esfx/async-mutex": "^1.0.0",
     "@esfx/async-semaphore": "^1.0.0",
-    "ajv": "^8.5.0",
+    "ajv": "^8.17.1",
     "chalk": "^4.1.2",
     "commander": "^7.2.0",
     "glob": "^8.1.0",
@@ -56,6 +56,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/tdjastrzebski/cppbuild.git"
+    "url": "git+https://github.com/tdjastrzebski/cppbuild.git"
   }
 }

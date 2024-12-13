@@ -36,6 +36,7 @@ export interface BuildStep {
 	name: string;
 	params?: ParamsDictionary;
 	filePattern?: string | string[];
+	fileExclude?: string | string[];
 	directoryPattern?: string | string[];
 	fileList?: string | string[];
 	outputDirectory?: string;
@@ -78,6 +79,7 @@ export enum PredefinedVariables {
 	fileDirectory = 'fileDirectory',
 	filePath = 'filePath',
 	filePattern = 'filePattern',
+	fileExclude = 'fileExclude',
 	directoryPattern = 'directoryPattern',
 	fileName = 'fileName',
 	fullFileName = 'fullFileName',

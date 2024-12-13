@@ -35,7 +35,7 @@ export function spawnAsync(process: string, args?: readonly string[], cwd?: stri
 		const stderrLines: string[] = [];
 		const options: cp.SpawnOptionsWithoutStdio = { cwd: cwd, timeout: timeout, shell: shell };
 		let child: cp.ChildProcess | undefined;
-		let timer: NodeJS.Timer;
+		let timer: NodeJS.Timeout;
 		let error: Error;
 
 		try {

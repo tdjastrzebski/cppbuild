@@ -14,7 +14,7 @@ The package.json guide
 https://flaviocopes.com/package-json/
 
 Build An Interactive Command-Line Application with Node.js
-https://scotch.io/tutorials/build-an-interactive-command-line-application-with-nodejs
+https://scotch.io/tutorials/build-an-interactive-command-line-application-with-nodejsnpmjs
 https://github.com/tj/commander.js/
 
 Why npm Scripts?
@@ -76,6 +76,7 @@ npm update
 current version: https://github.com/microsoft/vscode-cpptools/blob/main/Extension/c_cpp_properties.schema.json
 migrate to schema-07 since ajv no longer supports schema-04 well
 https://github.com/ajv-validator/ajv-cli#migrate-schemas
+npm install -g ajv-cli
 ajv migrate -s c_cpp_properties.schema.json --spec=draft7
 replace markdownDescription with description
 remove descriptionHint
@@ -83,6 +84,8 @@ remove descriptionHint
 cppbuild GCC debug -w H:/DISCO-F769NI_LCD_demo -b H:/cppbuild/c_cpp_build.json -c H:/cppbuild/c_cpp_properties.json -v "buildTypeParams=-Os -g2"
 
 # test and publish
+
+npm login --scope=@cppbuild
 npm link
 npm publish --dry-run
 git tag <name>

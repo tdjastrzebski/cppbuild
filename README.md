@@ -132,3 +132,6 @@ Finally, if you find this tool useful, please give it a star. This way others wi
 * allow `filePattern` to accept array
 * make `trimIncludePaths` default true
 * add `excludeFiles` param, also accepting array
+* change `name` -> `configName` and allow to be used as r/o variable
+* parse #include <file>
+* read settings (variables) from `.vscode/settings.json`
