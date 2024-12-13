@@ -113,6 +113,7 @@ The above variables are available when **filePattern** or **fileList** build ste
 * 1.3.16 **c_cpp_properties** schema updated again, serious parser bug fix, packages updated, first attempt at full dependency analysis (and rebuild)
 * 1.3.17 lodash updated to ver 4.17.20 to eliminate its known vulnerabilities
 * 1.3.19 warning color change, numerous packages updated, c_cpp_properties.schema updated
+* 1.3.20 c_cpp_properties.schema updated
 
 # Further improvements
 I am certain this tool could be further improved in many ways, including both functionality and code structure. This is the second TypeScript program I have ever written (the first one was "hello world" app).  
