@@ -1,6 +1,7 @@
 'use strict';
 
-import { globSync } from 'glob';
+import glob from 'glob';
+import { sync as globSync } from 'glob';
 import chalk from 'chalk';
 import ColorSupport from 'chalk';
 import * as fs from 'fs';
@@ -12,8 +13,7 @@ import { SpawnAsyncResult, spawnAsync, SpawnAsyncError } from './spawnAsync';
 import { ParamsDictionary, ExpandPathsOption } from './interfaces';
 import { CancelToken, CancelSubscription } from "@esfx/async-canceltoken";
 import { isArrayOfString } from './cpptools';
-import xRegExp from 'xregexp';
-
+import * as xRegExp from 'xregexp';
 const ctx = new chalk.Instance({ level: 3 });
 
 function color(text: string, red: number, green: number, blue: number, color: (...text: unknown[]) => string): string {
@@ -222,6 +222,18 @@ export function matchRecursive(text: string, left: string, right: string, flags:
 
 export function replaceAt(string: string, index: number, length: number, replacement: string): string {
 	return string.substring(0, index) + replacement + string.substring(index + length);
+}
+
+export function globAsync(pattern: string, options: glob.IOptions): Promise<string[]> {
+	return new Promise((resolve, reject) => {
+		glob(pattern, options, (err, matches) => {
+			if (err) {
+				reject(err);
+			} else {
+				resolve(matches);
+			}
+		});
+	});
 }
 
 export function getFileStatus(filePath: string): Promise<fs.Stats> {

@@ -27,7 +27,7 @@
     "ajv": "^8.17.1",
     "chalk": "^4.1.2",
     "commander": "^7.2.0",
-    "glob": "^13.0.0",
+    "glob": "^7.2.3",
     "jsonc-parser": "^3.3.1",
     "lodash.uniq": "^4.5.0",
     "rimraf": "^6.1.2",
@@ -37,7 +37,7 @@
   },
   "devDependencies": {
     "@types/chai": "^4.3.20",
-    "@types/glob": "^9.0.0",
+    "@types/glob": "^7.2.0",
     "@types/lodash.uniq": "^4.5.9",
     "@types/mocha": "^8.2.3",
     "@types/node": "^18.19.130",

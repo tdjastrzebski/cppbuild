@@ -6,8 +6,7 @@
 'use strict';
 
 import * as path from 'path';
-import { glob } from 'glob';
-import { readLines, normalizePath } from './utils';
+import { readLines, globAsync, normalizePath } from './utils';
 import { AsyncMutex } from "@esfx/async-mutex";
 
 /** Class contains methods performing C/C++ static source code files dependency analysis. */
@@ -75,7 +74,7 @@ export class cppAnalyzer {
 	}
 
 	private async enlistFiles(location: string) {
-		const filePaths = await glob('*', { cwd: location, nodir: true }); // list files only
+		const filePaths = await globAsync('*', { cwd: location, nodir: true }); // list files only
 
 		for (const filePath of filePaths) {
 			const fileName = path.basename(filePath);
