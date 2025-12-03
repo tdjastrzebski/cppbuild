@@ -102,7 +102,7 @@ export function sleep(mills: number, token = CancelToken.none): Promise<void> {
 
 export async function getLatestVersion(name: string, token = CancelToken.none): Promise<string> {
 	const result = await execCmd(`npm show ${name} version`, {}, token);
-	var lines = result.stdout.split(/[\r\n]/).filter(line => !!line);
+	var lines = result.stdout.toString().split(/[\r\n]/).filter(line => !!line);
 	
 	if (lines[0].startsWith("npm WARN")) {
 		return lines[1];
@@ -261,8 +261,8 @@ export function getFileMTime(filePath: string): Promise<Date> {
 }
 
 export interface ExecCmdResult {
-	stdout: string;
-	stderr: string;
+	stdout: string | Buffer;
+	stderr: string | Buffer;
 	error?: cp.ExecException;
 }
 

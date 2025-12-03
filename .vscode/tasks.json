@@ -4,12 +4,14 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "typescript build",
-            "type": "typescript",
-            "tsconfig": "tsconfig.json",
-            "problemMatcher": [
-                "$tsc"
+            "label": "tsc build",
+            "type": "shell",
+            "command": "tsc",
+            "args": [
+                "-p",
+                "${workspaceFolder}/tsconfig.json"
             ],
+            "problemMatcher": "$tsc",
             "group": {
                 "kind": "build",
                 "isDefault": true,
@@ -22,10 +24,10 @@
             "problemMatcher": [
                 "$tsc"
             ],
-			"presentation": {
-				"reveal":"always",
-				"panel": "dedicated"
-			},
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            },
             "group": {
                 "kind": "build",
                 "isDefault": true,
