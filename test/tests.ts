@@ -5,37 +5,38 @@
 
 'use strict';
 
-import { assert } from 'chai';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as process from 'process';
 import chalk from 'chalk';
+import uniq from 'lodash.uniq';
+import { describe, it } from 'mocha';
+import { assert } from 'chai';
 import { getBuildInfos, validateJsonFile, expandTemplate, getMultivalues, variableListParse, variableListJoin, getCppConfigParams } from '../src/processor';
 import { elapsedMills, dColor, unescapeTemplateText, escapeTemplateText, expandGlob, lookUpVariable } from '../src/utils';
 import { BuildStepsFileSchema, PropertiesFileSchema, PropertiesFile, BuildStepsFile } from '../src/api';
 import { cppAnalyzer } from '../src/cppAnalyzer';
 import { ParamsDictionary, ExpandPathsOption } from '../src/interfaces';
 import { PathToRoot } from '../src/consts';
-import uniq from 'lodash.uniq';
 import { Runner } from 'mocha';
+import { rimraf } from "rimraf";
 
-const testRoot = 'c:/temp/cppbuild-test';
+const testRoot = 'C:/temp/cppbuild-test';
 const workspaceRoot = process.cwd();
-const rimraf = require("rimraf");
 
 Runner.prototype.uncaught = function (err) {
 	console.log("UNCAUGHT ERROR", err);
 };
 
-suite('static analysis dependency tests', () => {
-	test('getFirstUncommentedLinePart', async () => {
+describe('static analysis dependency tests', () => {
+	it('getFirstUncommentedLinePart', async () => {
 		const parserState = { inCommentBlock: false };
 		const analyzer: cppAnalyzer = new cppAnalyzer('');
 		let linePartText;
 		linePartText = analyzer.getFirstUncommentedLinePart('DMA1_Stream5_IRQn           = 16,     /*!< DMA1 Stream 5 global Interrupt                                    */', parserState);
 		linePartText = analyzer.getFirstUncommentedLinePart('DMA1_Stream6_IRQn           = 17,     /*!< DMA1 Stream 6 global Interrupt                                    */', parserState);
 	});
-	test('get includes', async () => {
+	it('get includes', async () => {
 		const rootFolder = 'C:/Test Projects/STM32H7A3_100';
 		let cppParams = await getCppConfigParams(path.join(rootFolder, '.vscode/c_cpp_properties.json'), 'gcc');
 		let includePaths: string[] = [];
@@ -54,7 +55,7 @@ suite('static analysis dependency tests', () => {
 			console.log(dependency);
 		}
 	});
-	test('get dependencies', async () => {
+	it('get dependencies', async () => {
 		const rootFolder = 'C:\\Test Projects\\STM32H7A3_100';
 		let cppParams = await getCppConfigParams(path.join(rootFolder, '.vscode/c_cpp_properties.json'), 'gcc');
 		let includePaths: string[] = [];
@@ -95,8 +96,8 @@ suite('static analysis dependency tests', () => {
 	});
 });
 
-suite('processor tests', () => {
-	test('expandTemplate() test', () => {
+describe('processor tests', () => {
+	it('expandTemplate() test', () => {
 		rimraf.sync(testRoot);
 		fs.mkdirSync(`${testRoot}/AA`, { recursive: true });
 		fs.mkdirSync(`${testRoot}/AB`, { recursive: true });
@@ -106,19 +107,19 @@ suite('processor tests', () => {
 		const actual = expandTemplate(workspaceRoot, '[$${t0}]', (name) => lookUpVariable(name, params));
 		assert.equal(actual, `${testRoot}/AA ${testRoot}/AB ${testRoot}/BA ${testRoot}/BB`);
 	});
-	test('variableListJoin()/variableListParse() test', () => {
+	it('variableListJoin()/variableListParse() test', () => {
 		const expected: string[] = ['"aa \\(bb\\) cc"'];
 		const s = variableListJoin(expected);
 		const actual = variableListParse(s);
 		assert.deepEqual(actual, expected);
 	});
-	test('expandTemplate() test', () => {
+	it('expandTemplate() test', () => {
 		const escaped = 'C:\\\\Program Files \\(x86\\)\\\\';
 		const params: ParamsDictionary = { t1: [escaped, escaped] };
 		const actual = expandTemplate(workspaceRoot, '[$${t1}]', (name) => lookUpVariable(name, params));
 		assert.equal(actual, '"C:/Program Files (x86)/" "C:/Program Files (x86)/"');
 	});
-	test('expandTemplate() test', () => {
+	it('expandTemplate() test', () => {
 		const expected = '[a] b {c}d (1) { e$f ${g}), \\h \'i\' "j"';
 		const str = escapeTemplateText(expected);
 		let arr = [str, str, str];
@@ -127,42 +128,42 @@ suite('processor tests', () => {
 		const actual = unescapeTemplateText(arr[1]);
 		assert.equal(actual, expected);
 	});
-	test('expandTemplate() test', () => {
+	it('expandTemplate() test', () => {
 		const template = '\\(aa\\) \\[bb\\] \\$\\{t1\\} \\$\\$\\{t2\\} \\\\ \\\'';
 		const params: ParamsDictionary = { t1: 'c', t2: ['d', 'e'] };
 		const actual = expandTemplate(workspaceRoot, template, (name) => lookUpVariable(name, params));
 		assert.equal(actual, '(aa) [bb] ${t1} $${t2} \\ \'');
 	});
-	test('escape/unescape test', () => {
+	it('escape/unescape test', () => {
 		const expected = '[sdf]sdf{sdf}s()df$sdef\\sdf\'df';
 		const str = escapeTemplateText(expected);
 		const actual = unescapeTemplateText(str);
 		assert.equal(actual, expected);
 	});
-	test('expandTemplate() test', () => {
+	it('expandTemplate() test', () => {
 		const template = '(aa)';
 		const actual = expandTemplate(workspaceRoot, template, (name) => lookUpVariable(name, {}));
 		assert.equal(actual, 'aa');
 	});
-	test('expandTemplate() test', () => {
+	it('expandTemplate() test', () => {
 		const params: ParamsDictionary = { t0: ['a', '(-$${t1})', '(+$${t2})', '${t3}', '$${g, h}'], t1: ['b', 'c'], t2: ['d', 'e'], t3: 'f' };
 		const template = '($${t0})';
 		const actual = expandTemplate(workspaceRoot, template, (name) => lookUpVariable(name, params));
 		assert.equal(actual, 'a -b -c +d +e f g h');
 	});
-	test('expandTemplate() test', () => {
+	it('expandTemplate() test', () => {
 		const params: ParamsDictionary = { t0: ['a', '(-$${t1})'], t1: ['b', 'c'] };
 		const template = '($${t0})';
 		const actual = expandTemplate(workspaceRoot, template, (name) => lookUpVariable(name, params));
 		assert.equal(actual, 'a -b -c');
 	});
-	test('expandTemplate() test', () => {
+	it('expandTemplate() test', () => {
 		const params: ParamsDictionary = { t0: ['a', '$${t1}'], t1: ['b', 'c'] };
 		const template = '($${t0})';
 		const actual = expandTemplate(workspaceRoot, template, (name) => lookUpVariable(name, params));
 		assert.equal(actual, 'a b c');
 	});
-	test('getMultivalues() test', () => {
+	it('getMultivalues() test', () => {
 		rimraf.sync(testRoot);
 		fs.mkdirSync(`${testRoot}/A`, { recursive: true });
 		fs.mkdirSync(`${testRoot}/B`, { recursive: true });
@@ -170,7 +171,7 @@ suite('processor tests', () => {
 		const actual = getMultivalues(workspaceRoot, '$${t0}', (name) => lookUpVariable(name, params), ExpandPathsOption.expandAll);
 		assert.deepEqual(actual, [testRoot, `${testRoot}/A`, `${testRoot}/B`]);
 	});
-	test('getMultivalues() test', () => {
+	it('getMultivalues() test', () => {
 		rimraf.sync(testRoot);
 		fs.mkdirSync(`${testRoot}/A`, { recursive: true });
 		fs.mkdirSync(`${testRoot}/B`, { recursive: true });
@@ -178,13 +179,13 @@ suite('processor tests', () => {
 		const actual = getMultivalues(workspaceRoot, pattern, (name) => lookUpVariable(name, {}), ExpandPathsOption.expandAll);
 		assert.deepEqual(actual, [testRoot, `${testRoot}/A`, `${testRoot}/B`]);
 	});
-	test('variableListJoin()/variableListParse() test', () => {
+	it('variableListJoin()/variableListParse() test', () => {
 		const expected: string[] = ['aa', '\"bb\"', '\"c c\"', '\'dd\'', '\'e e\'', ',', ' ', 'f,f', 'g\'g', ' h ', ' i, ', ' j , '];
 		const s = variableListJoin(expected);
 		const actual = variableListParse(s);
 		assert.deepEqual(actual, expected);
 	});
-	test('expandTemplate() test', () => {
+	it('expandTemplate() test', () => {
 		rimraf.sync(testRoot);
 		fs.mkdirSync(`${testRoot}/A`, { recursive: true });
 		fs.mkdirSync(`${testRoot}/B`, { recursive: true });
@@ -193,13 +194,13 @@ suite('processor tests', () => {
 		const actual = expandTemplate(testRoot, template, (name) => lookUpVariable(name, params));
 		assert.equal(actual, `${testRoot} ${testRoot}/A ${testRoot}/B`);
 	});
-	test('expandTemplate() test', () => {
+	it('expandTemplate() test', () => {
 		const params: ParamsDictionary = { t0: '1', t1: ['bb', 'ccc', 'ddd'] };
 		const template = '(($${t0}) $${t1})';
 		const actual = expandTemplate(workspaceRoot, template, (name) => lookUpVariable(name, params));
 		assert.equal(actual, '1 bb 1 ccc 1 ddd');
 	});
-	test('expandTemplate() test', () => {
+	it('expandTemplate() test', () => {
 		const params: ParamsDictionary = { t0: ['1', '2'], t1: ['bb', 'ccc', 'ddd'] };
 		const template = '([$${t0}] $${t1})';
 		try {
@@ -209,61 +210,61 @@ suite('processor tests', () => {
 			assert.ok('error occurred');
 		}
 	});
-	test('expandTemplate() test', () => {
+	it('expandTemplate() test', () => {
 		const params: ParamsDictionary = { t0: ['1', '2'], t1: ['bb', 'ccc', 'ddd'] };
 		const template = '(($${t0}) $${t1})';
 		const actual = expandTemplate(workspaceRoot, template, (name) => lookUpVariable(name, params));
 		assert.equal(actual, '1 2 bb 1 2 ccc 1 2 ddd');
 	});
-	test('expandTemplate() test', () => {
+	it('expandTemplate() test', () => {
 		const params: ParamsDictionary = { t0: '$${t1}', t1: ['b b', 'ccc', 'dd dd'] };
 		const template = '([${t0}]) : ([${t0}])';
 		const actual = expandTemplate(workspaceRoot, template, (name) => lookUpVariable(name, params));
 		assert.equal(actual, '"b b" ccc "dd dd" : "b b" ccc "dd dd"');
 	});
-	test('expandTemplate() test', () => {
+	it('expandTemplate() test', () => {
 		const params: ParamsDictionary = { t0: '$${t1}', t1: ['b b', 'ccc', 'dd dd'] };
 		const template = '([${t0}])';
 		const actual = expandTemplate(workspaceRoot, template, (name) => lookUpVariable(name, params));
 		assert.equal(actual, '"b b" ccc "dd dd"');
 	});
-	test('expandTemplate() test', () => {
+	it('expandTemplate() test', () => {
 		const params: ParamsDictionary = { t1: ['b b', 'c c c', 'dddd'], t2: 'f:' };
 		const template = '(${t2}[$${t1}])';
 		const actual = expandTemplate(workspaceRoot, template, (name) => lookUpVariable(name, params));
 		assert.equal(actual, 'f:"b b" f:"c c c" f:dddd');
 	});
-	test('expandTemplate() test', () => {
+	it('expandTemplate() test', () => {
 		const params: ParamsDictionary = { t1: ['b b', 'c c c', 'dddd'] };
 		const template = '(f:$${t1})';
 		const actual = expandTemplate(workspaceRoot, template, (name) => lookUpVariable(name, params));
 		assert.equal(actual, 'f:b b f:c c c f:dddd');
 	});
-	test('expandTemplate() test', () => {
+	it('expandTemplate() test', () => {
 		const params: ParamsDictionary = { t1: ['b b', 'c c c', 'dddd'] };
 		const template = '(f:[$${t1}])';
 		const actual = expandTemplate(workspaceRoot, template, (name) => lookUpVariable(name, params));
 		assert.equal(actual, 'f:"b b" f:"c c c" f:dddd');
 	});
-	test('expandTemplate() test', () => {
+	it('expandTemplate() test', () => {
 		const params: ParamsDictionary = { t1: ['b b', 'c c c', 'dddd'] };
 		const template = '[$${t1}]';
 		const actual = expandTemplate(workspaceRoot, template, (name) => lookUpVariable(name, params));
 		assert.equal(actual, '"b b" "c c c" dddd');
 	});
-	test('expandTemplate() test', () => {
+	it('expandTemplate() test', () => {
 		const params: ParamsDictionary = { t1: 'b b' };
 		const template = '[${t1}]';
 		const actual = expandTemplate(workspaceRoot, template, (name) => lookUpVariable(name, params));
 		assert.equal(actual, '"b b"');
 	});
-	test('expandTemplate() test', () => {
+	it('expandTemplate() test', () => {
 		const params: ParamsDictionary = { t1: '$${t2}', t2: ['bb', 'ccc', 'dddd'] };
 		const template = '${t1}';
 		const actual = expandTemplate(workspaceRoot, template, (name) => lookUpVariable(name, params));
 		assert.equal(actual, 'bb ccc dddd');
 	});
-	test('expandTemplate() test', () => {
+	it('expandTemplate() test', () => {
 		const params: ParamsDictionary = { t1: 'a', t2: ['bb', 'ccc', 'dddd'] };
 		const template = '${t1} $${t2}';
 		const actual = expandTemplate(workspaceRoot, template, (name) => lookUpVariable(name, params));
@@ -271,8 +272,8 @@ suite('processor tests', () => {
 	});
 });
 
-suite('other tests', () => {
-	test('trimmer.getIncludes test', async () => {
+describe('other tests', () => {
+	it('trimmer.getIncludes test', async () => {
 		const root = 'test-cpp';
 		const includePaths = [''];//expandNoTemplatePaths(root, ["mbed-os", "mbed-os/**"], (name) => lookUpVariable(name, {}), ExpandPathsOption.expandAll);
 		const trimmer = new cppAnalyzer(root);
@@ -312,7 +313,7 @@ suite('other tests', () => {
 		//console.log(wColor(`element count: ${inclPaths.size}, max count: ${maxCount}, time: ${elapsed.toFixed(2)}s`));
 		//console.log(wColor(`c1: ${c1}, c2: ${c2}, c0: ${c0}s, nf: ${notFoundCount}`));
 	});
-	test('validateJsonFile test', () => {
+	it('validateJsonFile test', () => {
 		let errors = validateJsonFile('test-cpp/.vscode/c_cpp_build.json', path.join(PathToRoot, BuildStepsFileSchema));
 		if (errors) {
 			console.log(`XX file schema validation error(s).\n${(<string[]>errors).join('\n\n')}`);
@@ -323,7 +324,7 @@ suite('other tests', () => {
 			console.log(`XX file schema validation error(s).\n${(<string[]>errors).join('\n\n')}`);
 		} else { console.log('no errors'); }
 	});
-	test('getBuildInfos test', () => {
+	it('getBuildInfos test', () => {
 		const propertiesPath: string = path.join(workspaceRoot, 'test-cpp/.vscode', PropertiesFile);
 		const buildStepsPath: string = path.join(workspaceRoot, 'test-cpp/.vscode', BuildStepsFile);
 		(async () => {
@@ -339,7 +340,7 @@ suite('other tests', () => {
 			console.log('done');
 		})();
 	});
-	test('colors test', () => {
+	it('colors test', () => {
 		const ctx = new chalk.Instance({ level: 3 });
 		console.log(ctx.rgb(224, 135, 113)('test 1'));
 		console.log(ctx.rgb(205, 151, 49)('test 2'));
