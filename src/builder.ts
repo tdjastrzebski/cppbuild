@@ -554,14 +554,14 @@ export class Builder {
 			result = e as ExecCmdResult;
 		} finally {
 			if (result) {
-				output = result.stdout;
-				output = output?.trimRight();
+				output = result.stdout.toString();
+				output = output?.trimEnd();
 				if (result.error?.message) {
 					error = result.error?.message;
 				} else {
-					error = result?.stderr;
+					error = result?.stderr.toString();
 				}
-				error = error?.trimRight();
+				error = error?.trimEnd();
 			}
 			if (!token.signaled) {
 				await this._mutex.lock();

@@ -4,13 +4,16 @@
         "lib": ["es2017", "es2015", "dom", "es6"],
         "module": "commonjs",
         "sourceMap": true,
-        "outDir": "out",
+        "outDir": "./out",
+        "rootDir": ".",
         "esModuleInterop": true,
         "strict": true,
-        "declaration": true
+        "declaration": true,
+        "skipLibCheck" : true
     },
     "include": [
-        "src/**/*.ts", "test/tests.ts"
+        "src/**/*.ts",
+        "test/tests.ts",
     ],
     "exclude": [
         "node_modules"

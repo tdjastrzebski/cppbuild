@@ -10,5 +10,11 @@
     "files.associations": {
         "*.json": "jsonc"
     },
-    "cppbuild.isEnabled": false
+    "cppbuild.isEnabled": false,
+    "github.copilot.enable": {
+        "*": true,
+        "c": false,
+        "cpp": false,
+        "ts": false,
+    }
 }

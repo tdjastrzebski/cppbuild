@@ -25,7 +25,7 @@ export interface SpawnAsyncError extends SpawnAsyncResult {
 	stack?: string;
 }
 
-export function spawnAsync(process: string, args?: readonly string[], cwd?: string, shell?: boolean | string, timeout?: number): Promise<SpawnAsyncResult> {
+export function spawnAsync(process: string, args?: readonly string[], cwd?: string, shell?: boolean | string, timeout_ms?: number): Promise<SpawnAsyncResult> {
 	// inspired by VsCode AbstractProcess<TProgressData>.start() for VSCode task runner implementation [src/vs/base/node/processes.ts]
 	// TODO: add proc KILL feature using CancellationToken (?)
 	return new Promise<SpawnAsyncResult>((resolve, reject) => {
@@ -33,9 +33,9 @@ export function spawnAsync(process: string, args?: readonly string[], cwd?: stri
 		const stderrDecoder: LineDecoder = new LineDecoder();
 		const stdoutLines: string[] = [];
 		const stderrLines: string[] = [];
-		const options: cp.SpawnOptionsWithoutStdio = { cwd: cwd, timeout: timeout, shell: shell };
+		const options: cp.SpawnOptionsWithoutStdio = { cwd: cwd, timeout: timeout_ms, shell: shell };
 		let child: cp.ChildProcess | undefined;
-		let timer: NodeJS.Timeout;
+		let timeout: NodeJS.Timeout;
 		let error: Error;
 
 		try {
@@ -45,11 +45,11 @@ export function spawnAsync(process: string, args?: readonly string[], cwd?: stri
 			// this will be captured in child.on('error') event
 		}
 
-		if (timeout) {
+		if (timeout_ms) {
 			// timeout the process if no response is received to ensure this Promise resolves/rejects
-			timer = setTimeout(() => {
-				error = new Error(`${process} failed to finish within ${timeout / 1000}s.`);
-			}, timeout);
+			timeout = setTimeout(() => {
+				error = new Error(`${process} failed to finish within ${timeout_ms / 1000}s.`);
+			}, timeout_ms);
 		}
 
 		if (child!.stdout) child!.stdout.on('data', (data) => {
@@ -70,12 +70,12 @@ export function spawnAsync(process: string, args?: readonly string[], cwd?: stri
 		*/
 
 		child!.on('error', (e: Error) => {
-			clearInterval(timer);
+			clearInterval(timeout);
 			error = e;
 		});
 
 		child!.on('close', (code: number, signal: string) => {
-			clearInterval(timer);
+			clearInterval(timeout);
 			let line: string | null = stdoutDecoder.end();
 			if (line) stdoutLines.push(line);
 			line = stderrDecoder.end();

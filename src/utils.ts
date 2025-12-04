@@ -1,7 +1,5 @@
 'use strict';
 
-import glob from 'glob';
-import { sync as globSync } from 'glob';
 import chalk from 'chalk';
 import ColorSupport from 'chalk';
 import * as fs from 'fs';
@@ -9,6 +7,7 @@ import * as path from 'path';
 import * as readline from 'readline';
 import * as cp from 'child_process';
 import * as jsonc from 'jsonc-parser';
+import { globSync } from 'glob';
 import { SpawnAsyncResult, spawnAsync, SpawnAsyncError } from './spawnAsync';
 import { ParamsDictionary, ExpandPathsOption } from './interfaces';
 import { CancelToken, CancelSubscription } from "@esfx/async-canceltoken";
@@ -102,7 +101,7 @@ export function sleep(mills: number, token = CancelToken.none): Promise<void> {
 
 export async function getLatestVersion(name: string, token = CancelToken.none): Promise<string> {
 	const result = await execCmd(`npm show ${name} version`, {}, token);
-	var lines = result.stdout.split(/[\r\n]/).filter(line => !!line);
+	var lines = result.stdout.toString().split(/[\r\n]/).filter(line => !!line);
 	
 	if (lines[0].startsWith("npm WARN")) {
 		return lines[1];
@@ -224,18 +223,6 @@ export function replaceAt(string: string, index: number, length: number, replace
 	return string.substring(0, index) + replacement + string.substring(index + length);
 }
 
-export function globAsync(pattern: string, options: glob.IOptions): Promise<string[]> {
-	return new Promise((resolve, reject) => {
-		glob(pattern, options, (err, matches) => {
-			if (err) {
-				reject(err);
-			} else {
-				resolve(matches);
-			}
-		});
-	});
-}
-
 export function getFileStatus(filePath: string): Promise<fs.Stats> {
 	return new Promise((resolve, reject) => {
 		fs.stat(filePath, (err, stats) => {
@@ -261,8 +248,8 @@ export function getFileMTime(filePath: string): Promise<Date> {
 }
 
 export interface ExecCmdResult {
-	stdout: string;
-	stderr: string;
+	stdout: string | Buffer;
+	stderr: string | Buffer;
 	error?: cp.ExecException;
 }
 
@@ -411,7 +398,7 @@ export function expandGlob(workspaceRoot: string, pattern: string, expandOption:
 
 		const cwd = path.isAbsolute(pattern) ? '/' : workspaceRoot; // do not return full path if at workspaceRoot
 		const nodir = (expandOption === ExpandPathsOption.filesOnly);
-		const paths = globSync(pattern, { cwd: cwd, nodir: nodir });
+		const paths = globSync(pattern, { cwd: cwd, nodir: nodir, posix: true }).map(normalizeGlobPath).sort();
 
 		paths.forEach((path, index, paths) => {
 			if (path.endsWith('/') || path.endsWith('\\')) {
@@ -433,4 +420,8 @@ export function normalizePath(p: string): string {
 export function getErrorMessage(error: unknown) {
 	if (error instanceof Error) return error.message
 	return String(error)
+}
+
+export function normalizeGlobPath(path: string): string {
+  return path.replace(/^\/\/\?\/?/, ''); // Remove extended path prefix
 }
