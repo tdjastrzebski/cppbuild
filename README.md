@@ -113,6 +113,7 @@ The above variables are available when **filePattern** or **fileList** build ste
 * 1.3.16 **c_cpp_properties** schema updated again, serious parser bug fix, packages updated, first attempt at full dependency analysis (and rebuild)
 * 1.3.17 lodash updated to ver 4.17.20 to eliminate its known vulnerabilities
 * 1.3.19 warning color change, numerous packages updated, c_cpp_properties.schema updated
+* 1.3.20 c_cpp_properties.schema updated
 
 # Further improvements
 I am certain this tool could be further improved in many ways, including both functionality and code structure. This is the second TypeScript program I have ever written (the first one was "hello world" app).  
@@ -121,3 +122,17 @@ For example, multi-valued variables currently cannot be specified from command l
 Please do not hesitate to suggest fixes and improvements. Pull requests are more than welcome.
 
 Finally, if you find this tool useful, please give it a star. This way others will be able to find it more easily.
+
+# TODO
+* fix unhandled error if a file in "forcedInclude" does not exist
+* fix missing includes when actual file name casing does not match the one specified in #include
+* use already implemented full dependency analysis and rebuild all the dependent file branch
+* test dependency on `defines` in `c_cpp_properties.json`
+* replace depreciated typescript methods
+* update components to last major versions
+* allow `filePattern` to accept array
+* make `trimIncludePaths` default true
+* add `excludeFiles` param, also accepting array
+* change `name` -> `configName` and allow to be used as r/o variable
+* parse #include <file>
+* read settings (variables) from `.vscode/settings.json`

@@ -52,6 +52,7 @@
 				{
 					"name": "C++ Compile Sample Step",
 					"filePattern": "**/*.cpp",
+					"fileExclude": "bad_file.cpp",
 					"outputFile": "${buildOutput}/${fileDirectory}/${fileName}.o",
 					"command": "g++ -c -std=c++17 ${buildTypeParams} (-I[$${includePath}]) (-D$${defines}) (-include [$${forcedInclude}]) [${filePath}] -o [${outputFile}]",
 					"trimIncludePaths": true

@@ -118,6 +118,15 @@
 										"**/*.c"
 									]
 								},
+								"fileExclude": {
+									"type": "string",
+									"description": "glob file pattern - files to be excluded",
+									"minLength": 1,
+									"pattern": ".",
+									"examples": [
+										"**/*.c"
+									]
+								},
 								"directoryPattern": {
 									"type": "string",
 									"description": "glob directory pattern - command will be called for every directory",

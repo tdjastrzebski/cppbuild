@@ -124,6 +124,7 @@ export class Builder {
 			// TODO: check if any of the following step param is already set, throw error if so or resolve these variables ..
 			if (buildStep.name) buildStep.params[PV.stepName] = buildStep.name;
 			if (buildStep.filePattern) buildStep.params[PV.filePattern] = buildStep.filePattern;
+			if (buildStep.fileExclude) buildStep.params[PV.fileExclude] = buildStep.fileExclude;
 			if (buildStep.directoryPattern) buildStep.params[PV.directoryPattern] = buildStep.directoryPattern;
 			if (buildStep.fileList) buildStep.params[PV.fileList] = buildStep.fileList;
 			if (buildStep.outputDirectory) buildStep.params[PV.outputDirectory] = buildStep.outputDirectory;
@@ -184,6 +185,8 @@ export class Builder {
 		if (buildStep.filePattern) {
 			// run command for each file
 			const filePaths = this.resolveAndExpand(workspaceRoot, PV.filePattern, stepVariableResolver, ExpandPathsOption.filesOnly);
+			//const fileExclude = PV.fileExclude ? this.resolveAndExpand(workspaceRoot, PV.fileExclude, stepVariableResolver, ExpandPathsOption.filesOnly) : null;
+
 			const semaphore: AsyncSemaphore = new AsyncSemaphore(options.maxTasks);
 			let filesProcessed = 0;
 
